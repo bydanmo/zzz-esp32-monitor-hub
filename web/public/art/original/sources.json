@@ -1,0 +1,14 @@
+{
+  "creator": "zzz ESP32 Monitor Hub contributors",
+  "license": "MIT",
+  "source": "scripts/create-original-art.py",
+  "thirdPartyGameAssets": false,
+  "covers": [
+    "signal.svg",
+    "tape.svg",
+    "arcade.svg",
+    "night.svg",
+    "acid.svg",
+    "paper.svg"
+  ]
+}

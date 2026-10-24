@@ -1,0 +1,527 @@
+{
+  "schema_version": 1,
+  "updated_date": "2026-10-24",
+  "purpose": "Task-based reference routing; not a production asset whitelist",
+  "routes": {
+    "overview_device_detail": [
+      "REF-U02",
+      "REF-U11",
+      "R199",
+      "R086"
+    ],
+    "editor_resource_workbench": [
+      "REF-U01",
+      "REF-U05",
+      "REF-U08",
+      "R093"
+    ],
+    "connection_forms": [
+      "R055",
+      "R086",
+      "REF-U15"
+    ],
+    "media_controls": [
+      "REF-U07",
+      "REF-U14",
+      "R075",
+      "R117"
+    ],
+    "background_print": [
+      "REF-U09",
+      "REF-U12",
+      "R201",
+      "R112"
+    ],
+    "object_materials": [
+      "REF-U11",
+      "REF-U13",
+      "REF-U14",
+      "R019",
+      "R199"
+    ],
+    "paper_editorial": [
+      "REF-U10",
+      "R055",
+      "R226",
+      "R237"
+    ],
+    "theme_covers": [
+      "R107",
+      "R111",
+      "R128",
+      "R189",
+      "R236"
+    ],
+    "motion": [
+      "VIDEO-CREAMFIELDS",
+      "UI-OVERVIEW-MOTION",
+      "UI-SYSTEM-TRACES"
+    ]
+  },
+  "assets": [
+    {
+      "id": "REF-U01",
+      "collection": "user-15",
+      "title": "装扮与物品网格",
+      "sha256": "f7783157f72be916b3caa1c2b77bc83236437ab933a016ce958d449390ae7ec8",
+      "rights_status": "reference_only",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "REF-U02",
+      "collection": "user-15",
+      "title": "角色基础属性",
+      "sha256": "ebca0535e957498d117ef0d0b14170931c1f278aecfb87d4fe2eeb4bb66d78c1",
+      "rights_status": "reference_only",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "REF-U03",
+      "collection": "user-15",
+      "title": "技能与双单元模块",
+      "sha256": "c37b35805a8c90aa1cd60504047e5cf6cb7696d035a82aa92846cfec9c51f78d",
+      "rights_status": "reference_only",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "REF-U04",
+      "collection": "user-15",
+      "title": "装备环形装置",
+      "sha256": "efe06022aadf1a981c3639d6f6a4f4939269415d28eb1a10bbfd63b1b48cc171",
+      "rights_status": "reference_only",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "REF-U05",
+      "collection": "user-15",
+      "title": "角色方案与高密度工作区",
+      "sha256": "23b89e4cbf4f792e9d6690a078c64c1a3685d3aa836a4663e4230690d3ec453b",
+      "rights_status": "reference_only",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "REF-U06",
+      "collection": "user-15",
+      "title": "斜向对象选择抽屉",
+      "sha256": "9111d5c2dc7120accee30bf3ffadf6984d7311c69522ac868abc9be623f9b520",
+      "rights_status": "reference_only",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "REF-U07",
+      "collection": "user-15",
+      "title": "录像带档案盒展示",
+      "sha256": "50d34604071a456f34ba107a0be196c6c416673cf264026e243c81b7fe044ae9",
+      "rights_status": "reference_only",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "REF-U08",
+      "collection": "user-15",
+      "title": "目标手册实体面板",
+      "sha256": "33a43e56c7d05dd4a347d33fa51f7ec4faa312978a3490a3ca288cff426a73ee",
+      "rights_status": "reference_only",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "REF-U09",
+      "collection": "user-15",
+      "title": "品牌宣传图形",
+      "sha256": "a984bdf3e174aba6df336bd9c404dee1c0cc018ecfc3be567569fd6733665e3d",
+      "rights_status": "reference_only",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "REF-U10",
+      "collection": "user-15",
+      "title": "咖啡店印刷拼贴",
+      "sha256": "866aa996a5843811b3593f04658fade910a8d590e611076fda8c6d5f3a0b749e",
+      "rights_status": "reference_only",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "REF-U11",
+      "collection": "user-15",
+      "title": "CRT与桌面设备混合截屏",
+      "sha256": "c888353d26982751bccb709996116db9f016fe42267c168b48b674ddc8b6148c",
+      "rights_status": "reference_only",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "REF-U12",
+      "collection": "user-15",
+      "title": "活动展陈长图",
+      "sha256": "e450f41a6658c76b9180b7fd86df1d00d89a7a4a9076f8c3b52a8c0272d88238",
+      "rights_status": "reference_only",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "REF-U13",
+      "collection": "user-15",
+      "title": "键盘与桌面周边产品图",
+      "sha256": "c8103d3f6fb4c990738bbba8217b515d6b5979ee816f5060788d450ec056fc20",
+      "rights_status": "reference_only",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "REF-U14",
+      "collection": "user-15",
+      "title": "音乐播放设备产品图",
+      "sha256": "15bac47d63df45d7ae5b5861c59e7123a5b154caa7e0bed14a97997332b32673",
+      "rights_status": "reference_only",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "REF-U15",
+      "collection": "user-15",
+      "title": "浅色地图与区域列表",
+      "sha256": "e6afc025df7faf201613c750560bd9643a15995e16614698f7b92a22fdd04b97",
+      "rights_status": "reference_only",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "R001",
+      "collection": "pack-20261024",
+      "title": "涡轮店面拼贴",
+      "application": "展示页场景构图、标签叠放、局部色块",
+      "sha256": "40be65d98b1feaa7edcad576b5820945c6b42dbc197823332ef46e11ef672d61",
+      "width": 2000,
+      "height": 2666,
+      "frames": 1,
+      "rights_status": "user_supplied_source_conditions_not_fully_verified",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "R009",
+      "collection": "pack-20261024",
+      "title": "改装店与工作台",
+      "application": "维修模块、工具机、功能贴签",
+      "sha256": "9f473421970000cd7247c4fa90e557fb4c4c190eb0ba4f76c96d64dfc0abb39d",
+      "width": 2000,
+      "height": 2666,
+      "frames": 1,
+      "rights_status": "user_supplied_source_conditions_not_fully_verified",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "R012",
+      "collection": "pack-20261024",
+      "title": "咖啡店贴纸海报",
+      "application": "暖色副主题、贴纸与纸张层级",
+      "sha256": "5fc5349478ecdb5ed52577d8ff9c2d77217d83593fc6c273c6903dbf682071cc",
+      "width": 2000,
+      "height": 2666,
+      "frames": 1,
+      "rights_status": "user_supplied_source_conditions_not_fully_verified",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "R019",
+      "collection": "pack-20261024",
+      "title": "咖啡机与店铺场景",
+      "application": "干净在用的器物、灯光和小标签",
+      "sha256": "b316c5c34296ca3799d613880ac19b4ded82fe831f36b62e486b7fda09bf6318",
+      "width": 2000,
+      "height": 2666,
+      "frames": 1,
+      "rights_status": "user_supplied_source_conditions_not_fully_verified",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "R055",
+      "collection": "pack-20261024",
+      "title": "客服登记表",
+      "application": "设置页、连接表单、印章与档案纸张",
+      "sha256": "22298dba121fa9c7ffc4f51d03df019c8eac372bcba2c11e0827955a0db13fdd",
+      "width": 1756,
+      "height": 2464,
+      "frames": 1,
+      "rights_status": "user_supplied_source_conditions_not_fully_verified",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "R075",
+      "collection": "pack-20261024",
+      "title": "FAIRY RADIO 紫色面板",
+      "application": "优先：媒体模块的按键、凹槽、喇叭网、旋钮和贴签",
+      "sha256": "1ed204e661e17f36bda354be182f4356be38db0b471efd1340fde654c323209e",
+      "width": 1080,
+      "height": 2160,
+      "frames": 1,
+      "rights_status": "user_supplied_source_conditions_not_fully_verified",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "R086",
+      "collection": "pack-20261024",
+      "title": "档案身份与橙色框架",
+      "application": "身份、索引、字号层级",
+      "sha256": "258b8d18057f3aebfb23bf87d45882aefac1f433ea7df4fa92a3bee46f4f24fe",
+      "width": 1756,
+      "height": 2464,
+      "frames": 1,
+      "rights_status": "user_supplied_source_conditions_not_fully_verified",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "R093",
+      "collection": "pack-20261024",
+      "title": "RIDAR 数据卡说明",
+      "application": "优先：功能入口、主题色描边选中、机能卡片",
+      "sha256": "0224fa9903ec806a7bc0ca081ae033ebb6e498fd0c6e990a9db4e72b2fd21493",
+      "width": 1080,
+      "height": 2160,
+      "frames": 1,
+      "rights_status": "user_supplied_source_conditions_not_fully_verified",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "R107",
+      "collection": "pack-20261024",
+      "title": "FAIRY RADIO 蓝橙海报",
+      "application": "媒体主题、窄体标题与收音机形象",
+      "sha256": "fcce0cbd5f4704d5aaebd26476c101870b140d009079150569fad85e25fadef7",
+      "width": 1080,
+      "height": 2160,
+      "frames": 1,
+      "rights_status": "user_supplied_source_conditions_not_fully_verified",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "R111",
+      "collection": "pack-20261024",
+      "title": "FAIRY RADIO 黄品红海报",
+      "application": "高饱和媒体主题，与设备壳体中性色分离",
+      "sha256": "b7bc503c4cf1266bc22480175a37d10628952dd8608b7a9504fb686623610e98",
+      "width": 1080,
+      "height": 2160,
+      "frames": 1,
+      "rights_status": "user_supplied_source_conditions_not_fully_verified",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "R112",
+      "collection": "pack-20261024",
+      "title": "黑色标题带与明黄信息页",
+      "application": "长内容分组与信息面",
+      "sha256": "6860aaf1aff632a738e2ecb2a0bb9e57463556a4f969c36ac49df39c528a096e",
+      "width": 1080,
+      "height": 2160,
+      "frames": 1,
+      "rights_status": "user_supplied_source_conditions_not_fully_verified",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "R117",
+      "collection": "pack-20261024",
+      "title": "紫色道具说明面板",
+      "application": "卡槽、圆盘、内容容器的器物化",
+      "sha256": "93af081b2f256d79ed3c6959abdabb4f770e370149a548159b7d3e338e9cc541",
+      "width": 1080,
+      "height": 2160,
+      "frames": 1,
+      "rights_status": "user_supplied_source_conditions_not_fully_verified",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "R128",
+      "collection": "pack-20261024",
+      "title": "FAIRY RADIO 紫色海报",
+      "application": "紫色媒体主题和明暗对比",
+      "sha256": "249453bea416267d82b9853176f4887898c6c3e6f9ff2e5a9b1054f891be164a",
+      "width": 1080,
+      "height": 2160,
+      "frames": 1,
+      "rights_status": "user_supplied_source_conditions_not_fully_verified",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "R139",
+      "collection": "pack-20261024",
+      "title": "FAIRY LIBRARY 青绿色海报",
+      "application": "青绿色连接与资料页主题",
+      "sha256": "02d119491ca91378570c40e30b405dd1021d99009741f64cbd8b12585caa6820",
+      "width": 700,
+      "height": 1036,
+      "frames": 1,
+      "rights_status": "user_supplied_source_conditions_not_fully_verified",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "R140",
+      "collection": "pack-20261024",
+      "title": "青色识别与中性器物信息页",
+      "application": "主题焦点与中性阅读面",
+      "sha256": "ef49b88a65af1d4f1e18bdc365735227b341606e05b1b20244aa0d899e4976ba",
+      "width": 700,
+      "height": 2472,
+      "frames": 1,
+      "rights_status": "user_supplied_source_conditions_not_fully_verified",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "R169",
+      "collection": "pack-20261024",
+      "title": "青绿道具与卡片说明",
+      "application": "优先：卡片组、徽章、暗色内容面板的层级",
+      "sha256": "efda0edd45f68418e9a42b6c410e8878a50df662f4c00f77829b8e331d314eae",
+      "width": 700,
+      "height": 1575,
+      "frames": 1,
+      "rights_status": "user_supplied_source_conditions_not_fully_verified",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "R173",
+      "collection": "pack-20261024",
+      "title": "FAIRY LIBRARY 蓝色海报",
+      "application": "设备资料页、器物主视觉",
+      "sha256": "7e9bee4c8c5384e2af63ee4cf0c7fdfcd1cffe4bca1ad861b17469e21c65fe11",
+      "width": 700,
+      "height": 1075,
+      "frames": 1,
+      "rights_status": "user_supplied_source_conditions_not_fully_verified",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "R189",
+      "collection": "pack-20261024",
+      "title": "FAIRY LIBRARY 绿色海报",
+      "application": "酸性绿与深灰的资料页变体",
+      "sha256": "1aca5d6d1e4d99db44a4c18310334daabf49bef0ebf3f4473f2df46aa08b9345",
+      "width": 700,
+      "height": 1245,
+      "frames": 1,
+      "rights_status": "user_supplied_source_conditions_not_fully_verified",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "R199",
+      "collection": "pack-20261024",
+      "title": "CRT 新闻显示器宣传图",
+      "application": "优先：屏中屏构图、荧光黄条、播放暂停符号",
+      "sha256": "6ed63378007cf3987a2172e320d0a1cf8c80f8f6287e6a9fbc63ee34371b9d72",
+      "width": 1920,
+      "height": 1080,
+      "frames": 1,
+      "rights_status": "user_supplied_source_conditions_not_fully_verified",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "R201",
+      "collection": "pack-20261024",
+      "title": "2023 BW 工业展台长图",
+      "application": "优先：深灰厚壳、固定件、黄黑大字、模块分层",
+      "sha256": "e9a17ab61991ccb611faeb36c973b35e2be197fe403f72ce42a76b1c35ae44c0",
+      "width": 1924,
+      "height": 7142,
+      "frames": 1,
+      "rights_status": "user_supplied_source_conditions_not_fully_verified",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "R207",
+      "collection": "pack-20261024",
+      "title": "街机机台海报",
+      "application": "桌面终端与真实功能的器物表达",
+      "sha256": "a542f5da28921715f85c969913234872b035026645b17ac8551e9c4a5cb8ccea",
+      "width": 1080,
+      "height": 1670,
+      "frames": 1,
+      "rights_status": "user_supplied_source_conditions_not_fully_verified",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "R218",
+      "collection": "pack-20261024",
+      "title": "橙色 RIDAR 封面",
+      "application": "工业橙黑与窄标题",
+      "sha256": "0b7da8cde11e75ed027508e2c28d94fffbd6f5ed905c450adfa6d81f5b09bc85",
+      "width": 1080,
+      "height": 1920,
+      "frames": 1,
+      "rights_status": "user_supplied_source_conditions_not_fully_verified",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "R226",
+      "collection": "pack-20261024",
+      "title": "灰绿新闻版面",
+      "application": "低饱和纸张主题、分栏与大号标题",
+      "sha256": "8336f60736ead52af2d11153f0d0e16487363079c3fa1fca775b334b050ef185",
+      "width": 1080,
+      "height": 1920,
+      "frames": 1,
+      "rights_status": "user_supplied_source_conditions_not_fully_verified",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "R236",
+      "collection": "pack-20261024",
+      "title": "NEW ERIDU ARCHIVES 红色档案",
+      "application": "圆盘媒介、档案索引与信息分区",
+      "sha256": "426ba66bad5dfae1d985947fea20ff2a363e3769ab163633ecae22257ae1a6ce",
+      "width": 1440,
+      "height": 1865,
+      "frames": 1,
+      "rights_status": "user_supplied_source_conditions_not_fully_verified",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "R237",
+      "collection": "pack-20261024",
+      "title": "NEW ERIDU ARCHIVES 灰色档案",
+      "application": "黑白版层级，适合低色彩信息页",
+      "sha256": "7fb1dd413b3e7c20cb849b752cc5dd66b520f7b925ac4c5d1ef7177269565c6a",
+      "width": 1440,
+      "height": 1865,
+      "frames": 1,
+      "rights_status": "user_supplied_source_conditions_not_fully_verified",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "VIDEO-CREAMFIELDS",
+      "collection": "project-artifacts",
+      "kind": "motion_source_reference",
+      "sha256": "d1d3f5be3420ffd60403a63163f6f34f369db8b5a1624b2db3fb24911583155e",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "MODEL-TERMINAL-01",
+      "collection": "project-artifacts",
+      "kind": "original_programmatic_concept_model",
+      "sha256": "85d98e9491ae6a7b01c168b895a5a41a8318762a3dcf800803edfa75cedad889",
+      "distribution": "project_original_bundled",
+      "project_path": "assets/models/dm01/terminal-concept.glb"
+    },
+    {
+      "id": "UI-OVERVIEW-MOTION",
+      "collection": "project-artifacts",
+      "kind": "host_render_with_synthetic_telemetry",
+      "sha256": "664efe6f96bcb97eac15736ec1b2e5c290effedf700496deaa0f634443322d7b",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "UI-SYSTEM-TRACES",
+      "collection": "project-artifacts",
+      "kind": "host_render_with_synthetic_telemetry",
+      "sha256": "4f120b7b44f30e6dd024b5b25d47af922f3034f77495bd83cb2b205ea67cc20f",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "WEB-OVERVIEW-ROUND2",
+      "collection": "project-artifacts",
+      "kind": "actual_browser_screenshot",
+      "sha256": "337ab4277e0139232653b359719fbd55f0c9426eaebd156896a58c8ed1e50977",
+      "distribution": "research_reference_not_bundled"
+    },
+    {
+      "id": "WEB-ART-PROVENANCE",
+      "collection": "project-artifacts",
+      "kind": "integrated_export_provenance",
+      "sha256": "7078b7419cc4960d3236ac178a5bc58bcb3db00f999160f736233776471cd968",
+      "distribution": "research_reference_not_bundled"
+    }
+  ],
+  "note": "Public research index. Original reference images and private source paths are not bundled."
+}

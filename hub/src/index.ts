@@ -1,0 +1,163 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import Fastify from "fastify";
+import fastifyStatic from "@fastify/static";
+import websocket from "@fastify/websocket";
+import { DeviceSessionRegistry } from "./device-sessions.js";
+import { ConfigWriteQueue } from "./config-write-queue.js";
+import { loadDeviceConfig, projectDeviceConfig, saveDeviceConfig, validateDeviceConfig } from "./device-config.js";
+import {
+  examSecondsRemaining,
+  loadExamTarget,
+  saveExamTarget,
+  validateExamTarget,
+  type ExamTarget
+} from "./exam-target.js";
+import { collectSnapshot } from "./telemetry.js";
+import { ProviderManager } from "./provider-manager.js";
+import { HardwareHttpProvider } from "./providers/hardware-http-provider.js";
+import type { MetricProvider } from "./providers/provider.js";
+import { SystemProvider } from "./providers/system-provider.js";
+import type { DeviceDisplayConfig } from "./types.js";
+
+const app = Fastify({ logger: true });
+const directory = path.dirname(fileURLToPath(import.meta.url));
+const webRoot = path.resolve(directory, "../../web/dist");
+const clients = new Set<{ send(data: string): void; readyState: number }>();
+const deviceClients = new Set<{ send(data: string): void; readyState: number }>();
+const deviceSessions = new DeviceSessionRegistry();
+const configWrites = new ConfigWriteQueue();
+let deviceConfig = await loadDeviceConfig();
+let examTarget: ExamTarget = await loadExamTarget();
+const providers: MetricProvider[] = [new SystemProvider(Number(process.env.SYSTEM_REFRESH_MS ?? 2000))];
+if (process.env.HARDWARE_MONITOR_URL) {
+  providers.push(new HardwareHttpProvider(process.env.HARDWARE_MONITOR_URL));
+}
+const providerManager = new ProviderManager(providers, Number(process.env.PROVIDER_TIMEOUT_MS ?? 7000));
+await providerManager.start();
+
+function collectDeviceTelemetry(snapshot: ReturnType<typeof collectSnapshot>) {
+  const value = (id: string): number | null => {
+    const metricValue = snapshot.metrics.find((metric) => metric.id === id)?.value;
+    return typeof metricValue === "number" && Number.isFinite(metricValue) ? metricValue : null;
+  };
+  return {
+    type: "telemetry",
+    cpu: value("system.cpu"),
+    memory: value("system.memory"),
+    examSeconds: value("study.exam"),
+    deviceTime: snapshot.deviceTime,
+    config: projectDeviceConfig(deviceConfig)
+  };
+}
+
+function broadcastDeviceState(snapshot = collectSnapshot(examTarget, providerManager.metrics())) {
+  const message = JSON.stringify(collectDeviceTelemetry(snapshot));
+  let pushedDevices = 0;
+  const pushedSockets: Array<{ send(data: string): void; readyState: number }> = [];
+  for (const client of deviceClients) {
+    if (client.readyState !== 1) continue;
+    try {
+      client.send(message);
+      pushedDevices += 1;
+      pushedSockets.push(client);
+    } catch (error) {
+      app.log.warn({ error }, "Failed to push device configuration");
+    }
+  }
+  return { pushedDevices, pushedSockets };
+}
+
+await app.register(websocket);
+await app.register(fastifyStatic, { root: webRoot, prefix: "/" });
+
+app.get("/api/health", async () => ({
+  ok: true,
+  service: "esp32-monitor-hub",
+  connectedDevices: deviceClients.size,
+  identifiedDevices: deviceSessions.list().length
+}));
+app.get("/api/snapshot", async () => collectSnapshot(examTarget, providerManager.metrics()));
+app.get("/api/devices", async () => ({
+  devices: deviceSessions.list(),
+  legacyConnections: deviceSessions.legacyConnections()
+}));
+app.get("/api/providers", async () => ({ providers: providerManager.states() }));
+app.get("/api/exam-target", async () => ({
+  target: examTarget,
+  examSeconds: examSecondsRemaining(examTarget)
+}));
+app.put<{ Body: unknown }>("/api/exam-target", async (request, reply) => {
+  try {
+    const next = validateExamTarget(request.body);
+    await saveExamTarget(next);
+    examTarget = next;
+    /* The countdown reaches the device through the telemetry frame, so push one
+     * now instead of waiting for the next two-second tick. */
+    broadcastDeviceState(collectSnapshot(examTarget, providerManager.metrics()));
+    return { target: examTarget, examSeconds: examSecondsRemaining(examTarget) };
+  } catch (error) {
+    return reply.code(400).send({
+      error: error instanceof Error ? error.message : "考试目标无效"
+    });
+  }
+});
+app.get("/api/device-config", async () => ({
+  config: deviceConfig,
+  connectedDevices: deviceClients.size,
+  pushedDevices: 0
+}));
+app.put<{ Body: DeviceDisplayConfig }>("/api/device-config", async (request, reply) => {
+  return configWrites.run(async () => {
+  try {
+    if (!Number.isSafeInteger(request.body?.revision) || request.body.revision < 0) {
+      return reply.code(400).send({ error: "配置必须携带有效版本，请先载入 Hub 配置" });
+    }
+    if (request.body.revision !== deviceConfig.revision) {
+      return reply.code(409).send({ error: "Hub 配置已更新，请重新载入远端配置后处理草稿" });
+    }
+    const next = validateDeviceConfig(request.body, deviceConfig.revision + 1);
+    await saveDeviceConfig(next);
+    deviceConfig = next;
+    const { pushedDevices, pushedSockets } = broadcastDeviceState(
+      collectSnapshot(examTarget, providerManager.metrics()));
+    deviceSessions.markPushed(next.revision, pushedSockets);
+    return { config: deviceConfig, connectedDevices: deviceClients.size, pushedDevices };
+  } catch (error) {
+    return reply.code(400).send({
+      error: error instanceof Error ? error.message : "配置无效"
+    });
+  }
+  });
+});
+app.get("/ws", { websocket: true }, (socket) => {
+  clients.add(socket);
+  socket.send(JSON.stringify({ type: "snapshot", payload: collectSnapshot(examTarget, providerManager.metrics()) }));
+  socket.on("close", () => clients.delete(socket));
+});
+app.get("/device-ws", { websocket: true }, (socket) => {
+  deviceClients.add(socket);
+  deviceSessions.add(socket);
+  socket.send(JSON.stringify(collectDeviceTelemetry(collectSnapshot(examTarget, providerManager.metrics()))));
+  socket.on("message", (data: { toString(): string }) => {
+    if (!deviceSessions.handleMessage(socket, data.toString())) {
+      app.log.warn("Ignored invalid device message");
+    }
+  });
+  socket.on("close", () => {
+    deviceClients.delete(socket);
+    deviceSessions.remove(socket);
+  });
+});
+setInterval(() => {
+  const snapshot = collectSnapshot(examTarget, providerManager.metrics());
+  const message = JSON.stringify({ type: "snapshot", payload: snapshot });
+  for (const client of clients) {
+    if (client.readyState === 1) client.send(message);
+  }
+  broadcastDeviceState(snapshot);
+}, 2000).unref();
+
+const host = process.env.HUB_HOST ?? "127.0.0.1";
+const port = Number(process.env.HUB_PORT ?? 8787);
+await app.listen({ host, port });

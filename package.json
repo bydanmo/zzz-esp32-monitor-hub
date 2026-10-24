@@ -1,0 +1,24 @@
+{
+  "name": "zzz-esp32-monitor-hub",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "hub",
+    "web"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace hub",
+    "generate:ui": "node scripts/generate-ui-contracts.mjs",
+    "check:ui": "node scripts/generate-ui-contracts.mjs --check",
+    "test": "node node_modules/tsx/dist/cli.mjs --test tests/*.test.ts",
+    "build": "npm run check:ui && npm run build --workspace hub && npm run build --workspace web",
+    "check": "npm run check:ui && npm run check --workspace hub && npm run check --workspace web",
+    "start": "npm run start --workspace hub"
+  },
+  "engines": {
+    "node": ">=22.9.0"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2"
+  }
+}

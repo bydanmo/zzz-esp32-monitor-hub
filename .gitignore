@@ -1,0 +1,17 @@
+node_modules/
+dist/
+build/
+.runtime/
+hub/data/
+.env
+.env.*
+!.env.example
+firmware/main/wifi_config.h
+firmware/sdkconfig
+firmware/sdkconfig.old
+firmware/managed_components/
+firmware/dist/
+*.tsbuildinfo
+.DS_Store
+web/src/zzz-preview/
+web/zzz-preview.html

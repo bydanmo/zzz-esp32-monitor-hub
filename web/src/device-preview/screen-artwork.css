@@ -1,0 +1,18 @@
+@font-face{font-family:DM01Poster;src:url('../assets/dm01-poster.woff') format('woff');font-weight:900;font-style:normal;font-display:swap}
+.ticket-paper{fill:var(--preview-data-text)}
+.ticket-heading,.ticket-clock{font:900 16px RoundNoto,sans-serif;fill:#f2f6fa}
+.ticket-serial{font:500 14px RoundNoto,sans-serif;fill:var(--ticket-ink,#08090a)}
+.ticket-value{font:900 112px DM01Poster,RoundNoto,sans-serif;fill:var(--ticket-ink,#08090a)}
+.ticket-value.compact{font:900 56px RoundNoto,sans-serif}
+.ticket-state{font:900 16px RoundNoto,sans-serif;fill:var(--ticket-ink,#08090a)}
+.cassette-caption,.meter-serial{font:500 14px RoundNoto,sans-serif;fill:#a8b6c8}
+.meter-body{fill:var(--preview-card);stroke:#050506;stroke-width:3}
+.meter-heading,.meter-state{font:900 16px RoundNoto,sans-serif;fill:#a8b6c8}
+.meter-value{font:900 28px RoundNoto,sans-serif;fill:var(--preview-data-text)}
+.meter-value.large{font-size:40px}
+.meter-arc{stroke:var(--preview-data-text)}
+.preview-scene-word{font:900 84px DM01Poster,RoundNoto,sans-serif;fill:var(--preview-data-text);opacity:.4;letter-spacing:-3px}
+.preview-shell .preview-nav-active{font-size:16px;fill:var(--ticket-ink,#08090a)}
+.preview-shell .preview-badge-text{fill:var(--ticket-ink,#08090a)}
+.preview-shell .preview-nav text{font-size:16px;font-weight:900}
+.preview-shell .preview-nav-pressed{stroke:#050506;stroke-width:3px}

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="320">
+<defs><pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0H0V24" fill="none" stroke="#27323a"/></pattern></defs>
+<rect width="480" height="320" fill="#101820"/><rect width="480" height="320" fill="url(#grid)"/>
+<text x="18" y="35" font-family="sans-serif" font-weight="900" font-size="21" fill="#70ddff">DESK / LOCAL SIGNAL</text>
+<rect x="118" y="60" width="280" height="195" rx="20" fill="#050708"/>
+<rect x="126" y="66" width="264" height="180" rx="15" fill="#454f54" stroke="#85928f" stroke-width="3"/>
+<rect x="140" y="77" width="208" height="160" rx="15" fill="#030609"/>
+<rect x="145" y="82" width="198" height="150" rx="13" fill="#14232b"/>
+<text x="167" y="160" font-family="sans-serif" font-size="23" font-weight="900" fill="#70ddff">SIGNAL / 01</text>
+<circle cx="367" cy="103" r="13" fill="#111719" stroke="#a2a99d" stroke-width="4"/><path d="M367 93v11" stroke="#ffad48" stroke-width="3"/>
+<circle cx="367" cy="147" r="13" fill="#111719" stroke="#a2a99d" stroke-width="4"/>
+<path d="M357 184h22m-22 7h22m-22 7h22m-22 7h22m-22 7h22" stroke="#13181a" stroke-width="3"/>
+<rect x="100" y="251" width="312" height="39" rx="7" fill="#303c41" stroke="#030708" stroke-width="3"/>
+<rect x="160" y="264" width="158" height="12" rx="3" fill="#080c0e"/><circle cx="124" cy="269" r="5" fill="#53df87"/>
+<rect x="342" y="261" width="24" height="19" rx="2" fill="#ffad48"/>
+<text x="19" y="304" fill="#afb6ac" font-family="sans-serif" font-size="10">PROJECT-ORIGINAL SCENE / 480 x 320 / NO GAME ASSETS</text></svg>

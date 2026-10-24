@@ -1,0 +1,22 @@
+#pragma once
+
+/* LCDWiki ES3C40P board wiring, verified against the vendor documentation. */
+#define BOARD_LCD_CS_GPIO 10
+#define BOARD_LCD_DC_GPIO 46
+#define BOARD_LCD_SCLK_GPIO 12
+#define BOARD_LCD_MOSI_GPIO 11
+#define BOARD_LCD_MISO_GPIO 13
+#define BOARD_LCD_RESET_GPIO 18
+#define BOARD_LCD_BACKLIGHT_GPIO 45
+#define BOARD_TOUCH_SDA_GPIO 16
+#define BOARD_TOUCH_SCL_GPIO 15
+#define BOARD_TOUCH_INTERRUPT_GPIO 17
+#define BOARD_SD_CLK_GPIO 38
+#define BOARD_SD_CMD_GPIO 40
+#define BOARD_SD_D0_GPIO 39
+#define BOARD_SD_D1_GPIO 41
+#define BOARD_SD_D2_GPIO 48
+#define BOARD_SD_D3_GPIO 47
+
+#define BOARD_LCD_WIDTH 480
+#define BOARD_LCD_HEIGHT 320

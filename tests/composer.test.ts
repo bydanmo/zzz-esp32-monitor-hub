@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { defaultDeviceConfig } from "../web/src/state/default-config.ts";
-import { acceptSavedDraft, createDraftState, discardDraft, isDraftDirty, receiveRemote } from "../web/src/state/draft-store.ts";
-import { availablePreviewPages, withPreviewPage } from "../web/src/state/preview-config.ts";
+import { defaultDeviceConfig } from "../apps/web/src/state/default-config.ts";
+import { acceptSavedDraft, createDraftState, discardDraft, isDraftDirty, receiveRemote } from "../apps/web/src/state/draft-store.ts";
+import { availablePreviewPages, withPreviewPage } from "../apps/web/src/state/preview-config.ts";
 
 const config = () => structuredClone(defaultDeviceConfig);
 

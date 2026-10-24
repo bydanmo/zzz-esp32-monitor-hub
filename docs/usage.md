@@ -2,9 +2,9 @@
 
 ## 第一次启动
 
-使用 Node.js 22.21+，在完整解压后的项目根目录执行 `npm ci` 和 `npm run build`。手动 `npm start` 在当前终端运行；Windows `start-monitor.cmd` 后台运行，`stop-monitor.cmd` 只停止启动器登记的进程。
+使用 Node.js 22.21+，在完整解压后的项目根目录执行 `npm ci` 和 `npm run build`。手动 `npm start` 在当前终端运行；Windows `tools/windows/start-monitor.cmd` 后台运行，`tools/windows/stop-monitor.cmd` 只停止启动器登记的进程。
 
-`setup.cmd` 适合首次使用；后续启动器按源码与资源修改时间决定是否重新构建。运行状态和日志在 `.runtime/`，个人数据在 `hub/data/`，均不提交。
+`setup.cmd` 适合首次使用；后续启动器按源码与资源修改时间决定是否重新构建。运行状态和日志在 `.runtime/`，个人数据在 `apps/hub/data/`，均不提交。
 
 重复启动会复用本启动器登记且身份匹配的现有进程。若 HTTP 健康检查暂时失败，明确警告并保留进程，不因一次超时自动杀掉它；可查看日志或手动停止再启动。构建产物有更新时仍会重启以加载新版本。
 

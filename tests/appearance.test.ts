@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { defaultAppearance, normalizeAppearance, readAppearance, themeEditions } from "../web/src/design/appearance";
-import { defaultDeviceConfig } from "../web/src/state/default-config";
-import { configurationDelivery } from "../web/src/state/configuration-delivery";
-import { validateDraft } from "../web/src/state/ui-state";
-import type { DeviceSessionView } from "../web/src/types";
+import { defaultAppearance, normalizeAppearance, readAppearance, themeEditions } from "../apps/web/src/design/appearance";
+import { defaultDeviceConfig } from "../apps/web/src/state/default-config";
+import { configurationDelivery } from "../apps/web/src/state/configuration-delivery";
+import { validateDraft } from "../apps/web/src/state/ui-state";
+import type { DeviceSessionView } from "../apps/web/src/types";
 
 test("corrupt or unsupported appearance storage safely returns local defaults", () => {
   for (const value of [null, "{broken", 'null', '[]', '{"version":2,"theme":"night"}']) {

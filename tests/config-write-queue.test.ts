@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ConfigWriteQueue } from "../hub/src/config-write-queue";
+import { ConfigWriteQueue } from "../apps/hub/src/config-write-queue";
 
 test("revision checks stay inside serialized writes and failed writes do not block later work", async () => {
   const queue = new ConfigWriteQueue();

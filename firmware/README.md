@@ -15,8 +15,8 @@
 使用 ESP-IDF **5.4.1** 的 PowerShell 环境。依赖由组件管理器安装：LVGL **8.4.0**、esp_websocket_client 1.4.0。
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts/build-firmware.ps1
-powershell -ExecutionPolicy Bypass -File scripts/build-firmware.ps1 -Flash -Port COM11
+powershell -ExecutionPolicy Bypass -File tools/firmware/build-firmware.ps1
+powershell -ExecutionPolicy Bypass -File tools/firmware/build-firmware.ps1 -Flash -Port COM11
 ```
 
 命令从仓库根目录执行。COM11 只是示例，按设备管理器中的实际端口替换。未存在 Wi-Fi 文件时脚本会复制示例，网络使用前仍需填写。
@@ -39,18 +39,18 @@ powershell -ExecutionPolicy Bypass -File scripts/build-firmware.ps1 -Flash -Port
 
 三页包含大数字倒计时、CPU／内存仪表、24 点采样趋势、卡匣和导航。点击在线点查看连接详情，长按切换本次开机的简化动效。横向滑动切页，纵向拖动不误触切页。
 
-长时间无触摸时，监控和屏保按 5+5 分钟循环；触摸返回监控。TF 需 MBR＋FAT32。缺卡、资源未就绪或播放失败时保留监控。默认原创素材与自备资源转换见 [素材说明](../docs/media.md)。
+长时间无触摸时，监控和屏保按 5+5 分钟循环；触摸返回监控。TF 需 MBR＋FAT32。缺卡、资源未就绪或播放失败时保留监控。默认源码不包含设备动画帧；下载可选资源或自行生成后启用屏保，步骤见 [素材说明](../docs/media.md)。
 
 历史原型在相同板型、40MHz SPI 和 PSRAM 局部窗口上测得约 30 FPS。该结果限定于当时的设备与资源；本仓库新生成的默认原创片段没有单独物理摄屏验收，不承诺任意全屏素材同样帧率。
 
-普通固件构建使用已提交字库，无需安装字体工具。重新生成需 Python/fontTools、本地 lv_font_conv 和合适的 Noto 字体文件；见 `scripts/generate-firmware-font.ps1` 的参数。字库许可在 `main/ui/fonts/`。
+普通固件构建使用已提交字库，无需安装字体工具。重新生成需 Python/fontTools、本地 lv_font_conv 和合适的 Noto 字体文件；见 `tools/firmware/generate-firmware-font.ps1` 的参数。字库许可在 `main/ui/fonts/`。
 
 ## 离屏检查
 
 在组件已下载且安装原生 GCC 后，可执行：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts/render-device-review.ps1 -Gcc C:/msys64/ucrt64/bin/gcc.exe
+powershell -ExecutionPolicy Bypass -File tools/firmware/render-device-review.ps1 -Gcc C:/msys64/ucrt64/bin/gcc.exe
 ```
 
-这使用真实 LVGL 与测试遥测，不是硬件摄屏。渲染输出到本地文档目录；不应以主机刷新像素计数代替实机 FPS。
+这使用真实 LVGL 与测试遥测，不是硬件摄屏。渲染输出到本地 `.runtime/reviews/compact-layout/`；不应以主机刷新像素计数代替实机 FPS。

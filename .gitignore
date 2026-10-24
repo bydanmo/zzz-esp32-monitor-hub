@@ -2,7 +2,7 @@ node_modules/
 dist/
 build/
 .runtime/
-hub/data/
+apps/hub/data/
 .env
 .env.*
 !.env.example
@@ -13,5 +13,11 @@ firmware/managed_components/
 firmware/dist/
 *.tsbuildinfo
 .DS_Store
-web/src/zzz-preview/
-web/zzz-preview.html
+apps/web/src/zzz-preview/
+apps/web/zzz-preview.html
+
+# Optional exports live in release assets, not in the source tree.
+apps/web/public/motion-assets/
+apps/web/public/motion-review/*.mp4
+apps/web/public/motion-review/crt-manifest.json
+apps/web/public/art/original/terminal-scene.png

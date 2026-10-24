@@ -3,17 +3,20 @@
   "private": true,
   "version": "0.1.0",
   "workspaces": [
-    "hub",
-    "web"
+    "apps/hub",
+    "apps/web"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace hub",
-    "generate:ui": "node scripts/generate-ui-contracts.mjs",
-    "check:ui": "node scripts/generate-ui-contracts.mjs --check",
+    "dev": "npm run dev --workspace @esp32-monitor/hub",
+    "generate:ui": "node tools/generate-ui-contracts.mjs",
+    "check:ui": "node tools/generate-ui-contracts.mjs --check",
     "test": "node node_modules/tsx/dist/cli.mjs --test tests/*.test.ts",
-    "build": "npm run check:ui && npm run build --workspace hub && npm run build --workspace web",
-    "check": "npm run check:ui && npm run check --workspace hub && npm run check --workspace web",
-    "start": "npm run start --workspace hub"
+    "build": "npm run check:ui && npm run build --workspace @esp32-monitor/hub && npm run build --workspace @esp32-monitor/web",
+    "check": "npm run check:ui && npm run check --workspace @esp32-monitor/hub && npm run check --workspace @esp32-monitor/web",
+    "start": "npm run start --workspace @esp32-monitor/hub",
+    "stop": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/windows/monitor.ps1 -Action Stop",
+    "media:generate": "python tools/media/create-original-art.py --media",
+    "resources:pack": "python tools/media/package-resources.py"
   },
   "engines": {
     "node": ">=22.9.0"

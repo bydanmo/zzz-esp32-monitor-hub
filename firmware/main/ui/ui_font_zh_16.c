@@ -1,7 +1,7 @@
 /*******************************************************************************
  * Size: 16 px
  * Bpp: 4
- * Generated Noto derivative; see scripts/generate-device-fonts.py and the OFL notice.
+ * Generated Noto derivative; see tools/firmware/generate-device-fonts.py and the OFL notice.
  ******************************************************************************/
 
 #ifdef LV_LVGL_H_INCLUDE_SIMPLE

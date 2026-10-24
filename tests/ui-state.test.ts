@@ -1,15 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { defaultDeviceConfig } from "../web/src/state/default-config.ts";
+import { defaultDeviceConfig } from "../apps/web/src/state/default-config.ts";
 import {
   createDraftState,
   isDraftDirty,
   keepLocal,
   receiveRemote
-} from "../web/src/state/draft-store.ts";
-import { numericMetric, validateDraft } from "../web/src/state/ui-state.ts";
-import type { DeviceDisplayConfig, Snapshot } from "../web/src/types.ts";
+} from "../apps/web/src/state/draft-store.ts";
+import { numericMetric, validateDraft } from "../apps/web/src/state/ui-state.ts";
+import type { DeviceDisplayConfig, Snapshot } from "../apps/web/src/types.ts";
 
 function config(overrides: Partial<DeviceDisplayConfig> = {}): DeviceDisplayConfig {
   return { ...structuredClone(defaultDeviceConfig), ...overrides };

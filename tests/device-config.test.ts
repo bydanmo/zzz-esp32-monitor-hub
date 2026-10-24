@@ -5,7 +5,7 @@ import {
   defaultDeviceConfig,
   projectDeviceConfig,
   validateDeviceConfig
-} from "../hub/src/device-config.ts";
+} from "../apps/hub/src/device-config.ts";
 
 test("Hub 配置校验规范化颜色并使用服务端 revision", () => {
   const result = validateDeviceConfig({

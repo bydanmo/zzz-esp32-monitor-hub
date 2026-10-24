@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {scenePose,scrollProgress} from "../web/src/three/scene-motion.ts";
+import {scenePose,scrollProgress} from "../apps/web/src/three/scene-motion.ts";
 
 test("滚动出入展示区域时相机始终停留在设计的有限范围",()=>{
   for(const top of [-100000,-700,0,500,100000]) {

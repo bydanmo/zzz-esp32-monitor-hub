@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { DeviceSessionRegistry } from "../hub/src/device-sessions.ts";
+import { DeviceSessionRegistry } from "../apps/hub/src/device-sessions.ts";
 
 const hello = JSON.stringify({
   type: "hello",

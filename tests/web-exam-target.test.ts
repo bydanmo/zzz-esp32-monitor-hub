@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   examTargetToLocalInput,
   localInputToExamTarget
-} from "../web/src/state/exam-target.ts";
+} from "../apps/web/src/state/exam-target.ts";
 
 test("考试目标在本地输入和带时区 ISO 时间之间保持同一时刻", () => {
   const source = "2027-12-25T09:00:00+08:00";

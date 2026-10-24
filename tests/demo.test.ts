@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { demoSnapshot, isDemoMode } from "../web/src/services/demo";
-import { fetchDeviceConfig, fetchDevices, fetchSnapshot, saveDeviceConfig, saveExamTarget } from "../web/src/services/hub-api";
-import { defaultDeviceConfig } from "../web/src/state/default-config";
+import { demoSnapshot, isDemoMode } from "../apps/web/src/services/demo";
+import { fetchDeviceConfig, fetchDevices, fetchSnapshot, saveDeviceConfig, saveExamTarget } from "../apps/web/src/services/hub-api";
+import { defaultDeviceConfig } from "../apps/web/src/state/default-config";
 
 test("only explicit mode=demo enables the sample source", () => {
   assert.equal(isDemoMode(""), false);

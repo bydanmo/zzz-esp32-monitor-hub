@@ -491,8 +491,8 @@
       "collection": "project-artifacts",
       "kind": "original_programmatic_concept_model",
       "sha256": "85d98e9491ae6a7b01c168b895a5a41a8318762a3dcf800803edfa75cedad889",
-      "distribution": "project_original_bundled",
-      "project_path": "assets/models/dm01/terminal-concept.glb"
+      "distribution": "project_original_optional_release",
+      "project_path": ".runtime/optional-resources/models/dm01/terminal-concept.glb"
     },
     {
       "id": "UI-OVERVIEW-MOTION",

@@ -17,4 +17,4 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-call start-monitor.cmd
+call tools\windows\start-monitor.cmd

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { examSecondsRemaining, validateExamTarget } from "../hub/src/exam-target.ts";
-import { collectSnapshot } from "../hub/src/telemetry.ts";
+import { examSecondsRemaining, validateExamTarget } from "../apps/hub/src/exam-target.ts";
+import { collectSnapshot } from "../apps/hub/src/telemetry.ts";
 
 test("考试目标必须是带时区的 ISO 8601 时间", () => {
   assert.throws(() => validateExamTarget({ examAt: "2027-12-25T09:00:00" }), /时区/);

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { ProviderManager } from "../hub/src/provider-manager.ts";
-import type { MetricProvider } from "../hub/src/providers/provider.ts";
+import { ProviderManager } from "../apps/hub/src/provider-manager.ts";
+import type { MetricProvider } from "../apps/hub/src/providers/provider.ts";
 
 test("Provider 失败不会阻止其他来源发布指标", async () => {
   const good: MetricProvider = {

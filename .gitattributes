@@ -1,0 +1,8 @@
+* text=auto eol=lf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+*.woff binary
+*.glb binary
+*.png binary
+*.mp4 binary
+*.rgb565 binary

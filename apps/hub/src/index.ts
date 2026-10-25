@@ -5,7 +5,8 @@ import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
 import { DeviceSessionRegistry } from "./device-sessions.js";
 import { ConfigWriteQueue } from "./config-write-queue.js";
-import { loadDeviceConfig, projectDeviceConfig, saveDeviceConfig, validateDeviceConfig } from "./device-config.js";
+import { loadDeviceConfig, saveDeviceConfig, validateDeviceConfig } from "./device-config.js";
+import { collectDeviceTelemetry } from "./device-telemetry.js";
 import {
   examSecondsRemaining,
   loadExamTarget,
@@ -27,6 +28,7 @@ const clients = new Set<{ send(data: string): void; readyState: number }>();
 const deviceClients = new Set<{ send(data: string): void; readyState: number }>();
 const deviceSessions = new DeviceSessionRegistry();
 const configWrites = new ConfigWriteQueue();
+const examTargetWrites = new ConfigWriteQueue();
 let deviceConfig = await loadDeviceConfig();
 let examTarget: ExamTarget = await loadExamTarget();
 const providers: MetricProvider[] = [new SystemProvider(Number(process.env.SYSTEM_REFRESH_MS ?? 2000))];
@@ -36,23 +38,8 @@ if (process.env.HARDWARE_MONITOR_URL) {
 const providerManager = new ProviderManager(providers, Number(process.env.PROVIDER_TIMEOUT_MS ?? 7000));
 await providerManager.start();
 
-function collectDeviceTelemetry(snapshot: ReturnType<typeof collectSnapshot>) {
-  const value = (id: string): number | null => {
-    const metricValue = snapshot.metrics.find((metric) => metric.id === id)?.value;
-    return typeof metricValue === "number" && Number.isFinite(metricValue) ? metricValue : null;
-  };
-  return {
-    type: "telemetry",
-    cpu: value("system.cpu"),
-    memory: value("system.memory"),
-    examSeconds: value("study.exam"),
-    deviceTime: snapshot.deviceTime,
-    config: projectDeviceConfig(deviceConfig)
-  };
-}
-
 function broadcastDeviceState(snapshot = collectSnapshot(examTarget, providerManager.metrics())) {
-  const message = JSON.stringify(collectDeviceTelemetry(snapshot));
+  const message = JSON.stringify(collectDeviceTelemetry(snapshot, deviceConfig));
   let pushedDevices = 0;
   const pushedSockets: Array<{ send(data: string): void; readyState: number }> = [];
   for (const client of deviceClients) {
@@ -88,6 +75,7 @@ app.get("/api/exam-target", async () => ({
   examSeconds: examSecondsRemaining(examTarget)
 }));
 app.put<{ Body: unknown }>("/api/exam-target", async (request, reply) => {
+  return examTargetWrites.run(async () => {
   try {
     const next = validateExamTarget(request.body);
     await saveExamTarget(next);
@@ -101,6 +89,7 @@ app.put<{ Body: unknown }>("/api/exam-target", async (request, reply) => {
       error: error instanceof Error ? error.message : "考试目标无效"
     });
   }
+  });
 });
 app.get("/api/device-config", async () => ({
   config: deviceConfig,
@@ -138,7 +127,7 @@ app.get("/ws", { websocket: true }, (socket) => {
 app.get("/device-ws", { websocket: true }, (socket) => {
   deviceClients.add(socket);
   deviceSessions.add(socket);
-  socket.send(JSON.stringify(collectDeviceTelemetry(collectSnapshot(examTarget, providerManager.metrics()))));
+  socket.send(JSON.stringify(collectDeviceTelemetry(collectSnapshot(examTarget, providerManager.metrics()), deviceConfig)));
   socket.on("message", (data: { toString(): string }) => {
     if (!deviceSessions.handleMessage(socket, data.toString())) {
       app.log.warn("Ignored invalid device message");

@@ -1,4 +1,5 @@
 #include "network_client.h"
+#include "config_delivery.h"
 
 #include <limits.h>
 #include <math.h>
@@ -49,9 +50,7 @@ static monitor_telemetry_t state = {
 static uint32_t state_version = 1;
 static uint32_t consumed_version;
 static esp_websocket_client_handle_t websocket;
-static bool hello_pending;
-static bool config_ack_pending;
-static uint32_t config_ack_revision;
+static monitor_config_delivery_t config_delivery; /* guarded by state_lock */
 static char device_id[32];
 
 static void ensure_device_id(void)
@@ -77,6 +76,7 @@ static void publish_connection(monitor_connection_state_t connection)
 static void publish_hub_disconnected(void)
 {
     portENTER_CRITICAL(&state_lock);
+    monitor_config_delivery_disconnected(&config_delivery);
     if (hub_connect_failures < HUB_OFFLINE_AFTER_FAILURES) hub_connect_failures++;
     state.connection = hub_connect_failures >= HUB_OFFLINE_AFTER_FAILURES
         ? MONITOR_CONNECTION_OFFLINE
@@ -258,6 +258,7 @@ static void parse_telemetry(const char *data, int length)
     hub_connect_failures = 0;
     if (valid_config) {
         state.display = display;
+        state.display_valid = true;
     }
     state_version++;
     portEXIT_CRITICAL(&state_lock);
@@ -277,7 +278,7 @@ static void websocket_event(void *handler_arg, esp_event_base_t base, int32_t ev
     if (event_id == WEBSOCKET_EVENT_CONNECTED) {
         ESP_LOGI(TAG, "Hub WebSocket connected; waiting for telemetry");
         portENTER_CRITICAL(&state_lock);
-        hello_pending = true;
+        monitor_config_delivery_connected(&config_delivery);
         state.connection = MONITOR_CONNECTION_HUB_CONNECTING;
         state_version++;
         portEXIT_CRITICAL(&state_lock);
@@ -296,19 +297,13 @@ static void flush_outgoing_messages(void)
 {
     if (websocket == NULL || !esp_websocket_client_is_connected(websocket)) return;
 
-    bool send_hello = false;
-    bool send_ack = false;
-    uint32_t ack_revision = 0;
     portENTER_CRITICAL(&state_lock);
-    send_hello = hello_pending;
-    hello_pending = false;
-    send_ack = config_ack_pending;
-    ack_revision = config_ack_revision;
-    config_ack_pending = false;
+    monitor_config_message_t message = monitor_config_delivery_next(&config_delivery);
     portEXIT_CRITICAL(&state_lock);
+    if (message.kind == MONITOR_CONFIG_MESSAGE_NONE) return;
 
     ensure_device_id();
-    if (send_hello) {
+    if (message.kind == MONITOR_CONFIG_MESSAGE_HELLO) {
         const esp_app_desc_t *description = esp_app_get_description();
         char json[384];
         int length = snprintf(json, sizeof(json),
@@ -317,33 +312,30 @@ static void flush_outgoing_messages(void)
             "\"firmwareVersion\":\"%s\",\"capabilities\":["
             "\"touch\",\"tf-video\",\"config-ack\"]}}",
             device_id, description->version);
-        if (length <= 0 || length >= (int)sizeof(json) ||
+        bool sent = length > 0 && length < (int)sizeof(json) &&
             esp_websocket_client_send_text(websocket, json, length,
-                                           pdMS_TO_TICKS(1000)) < 0) {
-            portENTER_CRITICAL(&state_lock);
-            hello_pending = true;
-            portEXIT_CRITICAL(&state_lock);
-        } else {
+                                           pdMS_TO_TICKS(1000)) == length;
+        portENTER_CRITICAL(&state_lock);
+        monitor_config_delivery_sent(&config_delivery, message, sent);
+        portEXIT_CRITICAL(&state_lock);
+        if (sent) {
             ESP_LOGI(TAG, "Device hello sent: %s firmware=%s", device_id,
                      description->version);
         }
-    }
-
-    if (send_ack) {
+    } else if (message.kind == MONITOR_CONFIG_MESSAGE_ACK) {
         char json[192];
         int length = snprintf(json, sizeof(json),
             "{\"type\":\"configAck\",\"deviceId\":\"%s\","
             "\"revision\":%lu,\"status\":\"applied\"}",
-            device_id, (unsigned long)ack_revision);
-        if (length <= 0 || length >= (int)sizeof(json) ||
+            device_id, (unsigned long)message.revision);
+        bool sent = length > 0 && length < (int)sizeof(json) &&
             esp_websocket_client_send_text(websocket, json, length,
-                                           pdMS_TO_TICKS(1000)) < 0) {
-            portENTER_CRITICAL(&state_lock);
-            config_ack_revision = ack_revision;
-            config_ack_pending = true;
-            portEXIT_CRITICAL(&state_lock);
-        } else {
-            ESP_LOGI(TAG, "Config ACK sent: revision=%lu", (unsigned long)ack_revision);
+                                           pdMS_TO_TICKS(1000)) == length;
+        portENTER_CRITICAL(&state_lock);
+        monitor_config_delivery_sent(&config_delivery, message, sent);
+        portEXIT_CRITICAL(&state_lock);
+        if (sent) {
+            ESP_LOGI(TAG, "Config ACK sent: revision=%lu", (unsigned long)message.revision);
         }
     }
 }
@@ -427,7 +419,6 @@ bool network_client_poll(monitor_telemetry_t *telemetry)
 void network_client_ack_config_applied(uint32_t revision)
 {
     portENTER_CRITICAL(&state_lock);
-    config_ack_revision = revision;
-    config_ack_pending = true;
+    monitor_config_delivery_applied(&config_delivery, revision);
     portEXIT_CRITICAL(&state_lock);
 }

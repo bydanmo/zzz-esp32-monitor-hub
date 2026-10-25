@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { saveExamTarget } from "../../services/hub-api";
-import { examTargetToLocalInput, localInputToExamTarget } from "../../state/exam-target";
+import { acceptSavedExamTarget, createExamTargetDraft, localInputToExamTarget, receiveExamTarget } from "../../state/exam-target";
 import type { ExamTargetResponse } from "../../types";
 
 import { isDemoMode } from "../../services/demo";
@@ -9,35 +9,27 @@ export function ExamTargetEditor({ response, onSaved }: {
   response: ExamTargetResponse | null;
   onSaved: (response: ExamTargetResponse) => void;
 }) {
-  const [value, setValue] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState("等待加载考试目标");
-  const skipNextRemoteSync = useRef(false);
+  const [draft, setDraft] = useState(createExamTargetDraft);
+  const { value, pendingSave: saving, status } = draft;
 
   useEffect(() => {
     if (!response) return;
-    if (skipNextRemoteSync.current) {
-      skipNextRemoteSync.current = false;
-      return;
-    }
-    setValue(examTargetToLocalInput(response.target.examAt));
-    setStatus(isDemoMode() ? "示例考试目标 · 演示模式只读，不持久化" : response.target.examAt ? "当前目标已由 Hub 持久化" : "尚未设置考试目标");
+    setDraft(current => receiveExamTarget(current, response.target.examAt,
+      isDemoMode() ? "示例考试目标 · 演示模式只读，不持久化" : response.target.examAt ? "当前目标已由 Hub 持久化" : "尚未设置考试目标"));
   }, [response]);
 
   const persist = async (examAt: string | null) => {
     if (saving) return;
-    setSaving(true);
-    setStatus("正在保存到 Hub…");
+    const submittedValue = value;
+    setDraft(current => ({ ...current, pendingSave: true, status: "正在保存到 Hub…" }));
     try {
       const next = await saveExamTarget(examAt);
-      setValue(examTargetToLocalInput(next.target.examAt));
-      skipNextRemoteSync.current = true;
+      setDraft(current => acceptSavedExamTarget(current, submittedValue, next.target.examAt,
+        examAt ? "已保存到 Hub，倒计时随遥测更新" : "已清除，倒计时将显示未提供"));
       onSaved(next);
-      setStatus(examAt ? "已保存到 Hub，倒计时随遥测更新" : "已清除，倒计时将显示未提供");
     } catch (cause) {
-      setStatus(cause instanceof Error ? cause.message : "保存失败");
-    } finally {
-      setSaving(false);
+      setDraft(current => ({ ...current, pendingSave: false,
+        status: cause instanceof Error ? cause.message : "保存失败" }));
     }
   };
 
@@ -45,7 +37,8 @@ export function ExamTargetEditor({ response, onSaved }: {
     try {
       void persist(localInputToExamTarget(value));
     } catch (cause) {
-      setStatus(cause instanceof Error ? cause.message : "请选择有效的考试日期和时间");
+      setDraft(current => ({ ...current,
+        status: cause instanceof Error ? cause.message : "请选择有效的考试日期和时间" }));
     }
   };
 
@@ -54,7 +47,10 @@ export function ExamTargetEditor({ response, onSaved }: {
     <label>
       <span>本地日期与时间</span>
       <input disabled={isDemoMode()} type="datetime-local" step="60" value={value}
-        onChange={(event) => setValue(event.target.value)} />
+        onChange={(event) => {
+          const nextValue = event.target.value;
+          setDraft(current => ({ ...current, value: nextValue, status: "有未保存的目标修改" }));
+        }} />
     </label>
     <p className="exam-target-status" aria-live="polite">{status}</p>
     <div className="exam-target-actions">

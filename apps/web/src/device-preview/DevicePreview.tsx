@@ -38,7 +38,7 @@ export function DevicePreview({ config, snapshot, connection, onPageChange, embe
     "--ticket-ink": /^#[0-9a-f]{6}$/i.test(config.theme.dataText) && contrastRatio("#F2F6FA",config.theme.dataText) > contrastRatio("#08090A",config.theme.dataText) ? "#F2F6FA" : "#08090A"
   } as CSSProperties;
 
-  const examLabel = exam.value === 0 ? "目标时间已到" : connection !== "online" && exam.value !== null ? "离线估算" : dataStateLabel(exam.state);
+  const examLabel = exam.value === 0 ? "目标时间已到" : connection !== "online" && exam.value !== null ? "最后快照" : dataStateLabel(exam.state);
   let content;
   if (config.page === "overview" && showExam && (showCpu || showMemory)) {
     content = <>

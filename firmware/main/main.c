@@ -8,6 +8,7 @@
 #include "dashboard.h"
 #include "lvgl_port.h"
 #include "network_client.h"
+#include "config_delivery.h"
 #include "ui/ui_model.h"
 #include "video_player.h"
 #include "media_assets.h"
@@ -37,7 +38,7 @@ void app_main(void)
                  esp_err_to_name(video_result));
     }
     ESP_LOGI(TAG, "ST7796S, FT6336U and LVGL dashboard initialized");
-    uint32_t applied_revision = 0;
+    monitor_config_application_t applied_config = {0};
     int64_t last_ui_update_ms = 0;
     ui_model_t ui_model;
     ui_model_init(&ui_model);
@@ -51,10 +52,11 @@ void app_main(void)
         monitor_telemetry_t telemetry;
         if (network_client_poll(&telemetry)) {
             ui_model_apply_telemetry(&ui_model, &telemetry);
-            if (telemetry.display.revision != applied_revision) {
+            if (monitor_config_needs_apply(&applied_config, telemetry.display_valid,
+                                            telemetry.display.revision)) {
                 dashboard_apply_config(&telemetry.display);
-                applied_revision = telemetry.display.revision;
-                network_client_ack_config_applied(applied_revision);
+                monitor_config_mark_applied(&applied_config, telemetry.display.revision);
+                network_client_ack_config_applied(applied_config.revision);
             }
         }
         int64_t now_ms = esp_timer_get_time() / 1000;

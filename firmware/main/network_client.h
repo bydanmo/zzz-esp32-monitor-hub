@@ -30,6 +30,8 @@ typedef struct {
     monitor_sample_state_t exam_state;
     int64_t received_at_ms;
     monitor_connection_state_t connection;
+    /* The boot fallback is not a configuration received from the Hub. */
+    bool display_valid;
     monitor_display_config_t display;
 } monitor_telemetry_t;
 

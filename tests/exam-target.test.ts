@@ -17,6 +17,16 @@ test("未配置考试目标时倒计时没有数值", () => {
   assert.equal(examSecondsRemaining({ examAt: null }), null);
 });
 
+test("考试目标拒绝被 Date.parse 自动顺延的日期并正确处理闰年", () => {
+  for (const examAt of ["2027-02-30T09:00:00+08:00", "2027-04-31T09:00:00+08:00",
+    "2100-02-29T09:00:00Z", "2027-12-25T24:00:00Z"]) {
+    assert.throws(() => validateExamTarget({ examAt }), /有效时间/);
+  }
+  for (const examAt of ["2028-02-29T09:00:00+08:00", "2000-02-29T09:00:00Z"]) {
+    assert.deepEqual(validateExamTarget({ examAt }), { examAt });
+  }
+});
+
 test("剩余秒数按目标时刻与当前时刻计算，过期归零", () => {
   const target = { examAt: "2027-12-25T09:00:00+08:00" };
   assert.equal(examSecondsRemaining(target, new Date("2027-12-25T00:59:00.000Z")), 60);

@@ -52,3 +52,19 @@ test("非法、超长和设备 ID 不匹配的消息被拒绝", () => {
     type: "configAck", deviceId: "another-device", revision: 1, status: "applied"
   })), false);
 });
+
+test("最近在线时间只随设备消息或心跳应答更新", () => {
+  let now = new Date("2026-10-25T00:00:00Z");
+  const registry = new DeviceSessionRegistry(() => now);
+  const socket = {};
+  registry.add(socket);
+  registry.handleMessage(socket, hello);
+  now = new Date("2026-10-25T00:00:10Z");
+  registry.markPushed(2, [socket]);
+  assert.equal(registry.list()[0]?.lastSeenAt, "2026-10-25T00:00:00.000Z");
+  registry.markSeen(socket);
+  assert.equal(registry.list()[0]?.lastSeenAt, "2026-10-25T00:00:10.000Z");
+  registry.remove(socket);
+  registry.markSeen(socket);
+  assert.equal(registry.list().length, 0);
+});

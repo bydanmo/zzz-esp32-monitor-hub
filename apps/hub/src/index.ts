@@ -4,6 +4,7 @@ import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
 import { DeviceSessionRegistry } from "./device-sessions.js";
+import { DeviceHeartbeat, type HeartbeatSocket } from "./device-heartbeat.js";
 import { ConfigWriteQueue } from "./config-write-queue.js";
 import { loadDeviceConfig, saveDeviceConfig, validateDeviceConfig } from "./device-config.js";
 import { collectDeviceTelemetry } from "./device-telemetry.js";
@@ -25,8 +26,9 @@ const app = Fastify({ logger: true });
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const webRoot = path.resolve(directory, "../../web/dist");
 const clients = new Set<{ send(data: string): void; readyState: number }>();
-const deviceClients = new Set<{ send(data: string): void; readyState: number }>();
+const deviceClients = new Set<HeartbeatSocket & { send(data: string): void }>();
 const deviceSessions = new DeviceSessionRegistry();
+const deviceHeartbeat = new DeviceHeartbeat((socket) => deviceSessions.markSeen(socket));
 const configWrites = new ConfigWriteQueue();
 const examTargetWrites = new ConfigWriteQueue();
 let deviceConfig = await loadDeviceConfig();
@@ -133,8 +135,11 @@ app.get("/device-ws", { websocket: true }, (socket) => {
       app.log.warn("Ignored invalid device message");
     }
   });
+  socket.on("pong", () => deviceHeartbeat.pong(socket));
+  socket.on("error", (error: Error) => app.log.warn({ error }, "Device WebSocket error"));
   socket.on("close", () => {
     deviceClients.delete(socket);
+    deviceHeartbeat.remove(socket);
     deviceSessions.remove(socket);
   });
 });
@@ -146,6 +151,8 @@ setInterval(() => {
   }
   broadcastDeviceState(snapshot);
 }, 2000).unref();
+
+setInterval(() => deviceHeartbeat.tick(deviceClients), 30000).unref();
 
 const host = process.env.HUB_HOST ?? "127.0.0.1";
 const port = Number(process.env.HUB_PORT ?? 8787);

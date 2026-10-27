@@ -8,9 +8,12 @@
 #include "dashboard.h"
 #include "lvgl_port.h"
 #include "network_client.h"
+#include "config_delivery.h"
 #include "ui/ui_model.h"
 #include "video_player.h"
 #include "media_assets.h"
+#include "device_settings.h"
+#include "ui/ui_shell.h"
 
 static const char *TAG = "esp32-monitor";
 
@@ -28,18 +31,24 @@ void app_main(void)
              BOARD_LCD_WIDTH, BOARD_LCD_HEIGHT);
     board_display_init();
     board_touch_init();
+    network_client_start(); /* Initializes NVS before loading local preferences. */
+    device_settings_init();
+    const device_settings_t *local=device_settings_get();
+    ESP_LOGI(TAG,"Local display: brightness=%u%% reduced=%d screensaver=%d",local->brightness,local->reduced_motion,local->screensaver);
     monitor_lvgl_init();
     dashboard_create();
-    network_client_start();
     esp_err_t video_result = video_player_init();
     if (video_result != ESP_OK) {
         ESP_LOGW(TAG, "Video screensaver unavailable: %s",
                  esp_err_to_name(video_result));
     }
     ESP_LOGI(TAG, "ST7796S, FT6336U and LVGL dashboard initialized");
-    uint32_t applied_revision = 0;
+    monitor_config_application_t applied_config = {0};
     int64_t last_ui_update_ms = 0;
-    ui_model_t ui_model;
+    /* Single main-task owner. Task titles make these snapshots >1KB each;
+     * keep them in static RAM instead of the startup/render stack. */
+    static ui_model_t ui_model;
+    static monitor_telemetry_t telemetry;
     ui_model_init(&ui_model);
     display_mode_t display_mode = DISPLAY_MODE_DASHBOARD;
     int64_t mode_started_us = esp_timer_get_time();
@@ -48,18 +57,29 @@ void app_main(void)
     bool sync_wait_logged=false;
 
     while (true) {
-        monitor_telemetry_t telemetry;
         if (network_client_poll(&telemetry)) {
+            video_player_set_clock(telemetry.clock_seconds, telemetry.clock_received_at_ms, telemetry.clock_valid);
             ui_model_apply_telemetry(&ui_model, &telemetry);
-            if (telemetry.display.revision != applied_revision) {
+            if (monitor_config_needs_apply(&applied_config, telemetry.display_valid,
+                                            telemetry.display.revision)) {
                 dashboard_apply_config(&telemetry.display);
-                applied_revision = telemetry.display.revision;
-                network_client_ack_config_applied(applied_revision);
+                monitor_config_mark_applied(&applied_config, telemetry.display.revision);
+                network_client_ack_config_applied(applied_config.revision);
             }
         }
         int64_t now_ms = esp_timer_get_time() / 1000;
         int64_t now_us = now_ms * 1000;
         ui_model_tick(&ui_model, now_ms);
+        bool study_active = ui_model.study.available && ui_model.study.status != STUDY_IDLE;
+        bool keep_dashboard=study_active || !device_settings_get()->screensaver || ui_shell_is_settings_open();
+        if (keep_dashboard) {
+            mode_started_us = now_us;
+            if (display_mode == DISPLAY_MODE_VIDEO) {
+                video_player_stop(); board_display_set_backlight(true); monitor_lvgl_force_redraw();
+                display_mode = DISPLAY_MODE_DASHBOARD;
+                ESP_LOGI(TAG, "Dashboard restored for active study session");
+            }
+        }
         media_assets_sync(ui_model.connection==MONITOR_CONNECTION_ONLINE && display_mode==DISPLAY_MODE_DASHBOARD,
                           video_player_storage_mounted());
 
@@ -76,6 +96,7 @@ void app_main(void)
             monitor_lvgl_run();
 
             if (now_us >= next_phase_log_us) {
+                ESP_LOGI(TAG, "Main stack minimum free: %u", (unsigned)uxTaskGetStackHighWaterMark(NULL));
                 ESP_LOGI(TAG, "Dashboard idle %lld/300s, video available=%s, media sync=%s",
                          (long long)((now_us-mode_started_us)/1000000LL),
                          video_player_is_available() ? "yes" : "no",
@@ -83,7 +104,7 @@ void app_main(void)
                 next_phase_log_us = now_us + 60000000LL;
             }
 
-            if (now_us - mode_started_us >= DASHBOARD_PHASE_US) {
+            if (!keep_dashboard && now_us - mode_started_us >= DASHBOARD_PHASE_US) {
                 if(media_assets_busy()) {
                     if(!sync_wait_logged) ESP_LOGI(TAG,"Video start deferred until media synchronization completes");
                     sync_wait_logged=true;

@@ -13,6 +13,7 @@
 #include "board_config.h"
 #include "board_display.h"
 #include "media_assets.h"
+#include "crt_clock.h"
 
 #define VIDEO_PATH "/sdcard/wallpaper.rgb565"
 #define VIDEO_WIDTH BOARD_LCD_WIDTH
@@ -35,6 +36,19 @@ static int64_t playback_started_us;
 static int64_t log_started_us;
 static size_t logged_frames;
 static bool active;
+static uint32_t clock_anchor;
+static int64_t clock_received_ms;
+static bool clock_valid;
+static uint32_t clock_drawn_second = UINT32_MAX;
+static uint32_t clock_updates;
+
+void video_player_set_clock(uint32_t seconds, int64_t received_ms, bool valid)
+{
+    if (!valid) return;
+    if (!clock_valid) ESP_LOGI(TAG,"Clock synchronized from Hub: %02lu:%02lu:%02lu UTC+8",
+        (unsigned long)(seconds/3600),(unsigned long)((seconds/60)%60),(unsigned long)(seconds%60));
+    clock_anchor=seconds; clock_received_ms=received_ms; clock_valid=true;
+}
 static int active_width=VIDEO_WIDTH,active_height=VIDEO_HEIGHT;
 static int origin_x,origin_y;
 static int64_t frame_interval_us=VIDEO_FRAME_INTERVAL_US;
@@ -58,6 +72,8 @@ static esp_err_t select_asset(int index,int64_t now_us)
     if(!chunk_buffer) return ESP_ERR_NO_MEM;
     prepare_pipeline();
     active_asset=index;
+    clock_drawn_second=UINT32_MAX;
+    clock_updates=0;
     active_width=asset->width;active_height=asset->height;
     origin_x=asset->x;origin_y=asset->y;
     frame_interval_us=1000000LL/asset->fps;
@@ -244,6 +260,16 @@ esp_err_t video_player_step(int64_t now_us)
     }
     int64_t final_wait_us=esp_timer_get_time();
     ESP_RETURN_ON_ERROR(board_display_wait(),TAG,"Last video stripe incomplete");
+    if (active_asset>=0) {
+        uint32_t seconds=clock_valid ? crt_clock_seconds(clock_anchor,clock_received_ms,now_us/1000) : 0;
+        if (clock_drawn_second!=seconds) {
+            crt_clock_render(chunk_buffer,media_assets_data(1),seconds,clock_valid);
+            ESP_RETURN_ON_ERROR(board_display_write_rect_rgb565be(CRT_CLOCK_X,CRT_CLOCK_Y,
+                CRT_CLOCK_WIDTH,CRT_CLOCK_HEIGHT,chunk_buffer,CRT_CLOCK_WIDTH*CRT_CLOCK_HEIGHT*2),TAG,"Clock draw failed");
+            clock_drawn_second=seconds;
+            ++clock_updates;
+        }
+    }
     send_time_us+=esp_timer_get_time()-final_wait_us;
     current_frame += 1;
     logged_frames += 1;
@@ -254,10 +280,10 @@ esp_err_t video_player_step(int64_t now_us)
     if (completed_us - log_started_us >= 10000000LL) {
         double fps = (double)logged_frames * 1000000.0 /
                      (double)(completed_us - log_started_us);
-        ESP_LOGI(TAG, "Playback %s %.2f display FPS, read %.2f ms/frame, LCD wait %.2f ms/frame, skipped %u, source frame %u/%u",
+        ESP_LOGI(TAG, "Playback %s %.2f display FPS, read %.2f ms/frame, LCD wait %.2f ms/frame, skipped %u, source frame %u/%u, clock updates %lu",
                  active_asset<0?"legacy":"crt",fps,
                  read_time_us/1000.0/logged_frames,send_time_us/1000.0/logged_frames,
-                 (unsigned)skipped_frames,(unsigned)current_frame,(unsigned)frame_count);
+                 (unsigned)skipped_frames,(unsigned)current_frame,(unsigned)frame_count,(unsigned long)clock_updates);
         log_started_us = completed_us;
         logged_frames = 0;
         read_time_us=send_time_us=0; skipped_frames=0;

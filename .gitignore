@@ -7,11 +7,14 @@ apps/hub/data/
 .env.*
 !.env.example
 firmware/main/wifi_config.h
+firmware/main/study_pairing.h
 firmware/sdkconfig
 firmware/sdkconfig.old
 firmware/managed_components/
 firmware/dist/
 *.tsbuildinfo
+__pycache__/
+*.py[cod]
 .DS_Store
 apps/web/src/zzz-preview/
 apps/web/zzz-preview.html

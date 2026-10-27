@@ -7,7 +7,7 @@ ESP32 RGB565 动画帧、离线 GLB 和额外评审预览已移到独立资源�
 
 ## 下载设备动画与离线模型
 
-打开 [可选资源发布页](https://github.com/bydanmo/zzz-esp32-monitor-hub/releases/tag/resources-v0.1.0)，下载 `zzz-monitor-resources-v0.1.0.zip` 与校验文件。将 ZIP **解压到仓库根目录**，保留其中目录结构，再执行：
+固件0.4.0分支使用 [0.4.0候选资源](https://github.com/bydanmo/zzz-esp32-monitor-hub/releases/tag/resources-v0.4.0)，下载 `zzz-monitor-resources-v0.4.0.zip` 与校验文件。旧main对应的 [0.1.0资源](https://github.com/bydanmo/zzz-esp32-monitor-hub/releases/tag/resources-v0.1.0) 仍保留，不覆盖其文件。将对应版本 ZIP **解压到仓库根目录**，保留其中目录结构，再执行：
 
 ```powershell
 npm run build
@@ -36,6 +36,8 @@ npm run build
 ```
 
 生成器位于 `tools/media/create-original-art.py`。固定画布 480×320，动态窗口 198×150、x145/y82，源时间轴 30 FPS／4 秒／120 帧，帧数据约 7.44 MB；不代表任意设备实测帧率。
+
+0.4.0以cover等比铺满窗口，不再新增上下补边；原创场景新增与固件时钟匹配的外壳。时钟在设备播放时局部绘制，显示Hub电脑时间的UTC+8；导出MP4不会自动包含实时时钟。
 生成会同步更新固件素材表。FFmpeg 版本与字体可能改变逐字节输出，帧、清单和表必须配套。随后可用 `npm run resources:pack` 生成独立 ZIP；离线模型只在本地存在时加入，不会暗中下载。
 
 ## 使用自己的图片和视频
@@ -47,6 +49,8 @@ npm run build
 
 这是命令行导入。背景中的电视需按模板匹配固定窗口，脚本不会识别任意屏幕位置。转换后重新构建固件，使尺寸、长度与 CRC 一致，不得只替换视频。
 原文件不复制进仓库，但派生资源仍可能包含其内容；请确认有权分发再制作资源包。
+
+对带嵌入分隔带的自备视频，可用 `--source-bands "x,y,width,height;x,y,width,height"` 选择等宽区域，纵向拼接后cover。此选项只控制取景，不识别内容；默认原创视频不需要。导入后执行 `python tools/media/check-motion-assets.py` 验证尺寸、CRC、SHA256和固件表，再重建。
 
 ## 研究来源
 

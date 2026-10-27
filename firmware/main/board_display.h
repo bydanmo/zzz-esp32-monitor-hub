@@ -8,6 +8,8 @@
 void board_display_init(void);
 void board_display_fill(uint16_t color);
 void board_display_set_backlight(bool enabled);
+void board_display_set_brightness(uint8_t percent);
+uint8_t board_display_get_brightness(void);
 esp_err_t board_display_write_rect_rgb565be(int x, int y, int width, int line_count,
                                            const uint8_t *pixels, size_t byte_count);
 /* Queue borrows pixels until wait completes. Callers must not mutate them. */

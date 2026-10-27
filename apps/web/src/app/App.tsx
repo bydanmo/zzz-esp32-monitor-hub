@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { StatusBadge } from "../components/StatusBadge";
 import { AppearanceBar } from "../components/AppearanceBar";
 import { RetroBackground } from "../components/RetroBackground";
@@ -7,7 +7,8 @@ import { useAppearance } from "../design/use-appearance";
 import { ConnectionsView } from "../features/connections/ConnectionsView";
 import { DataOverview } from "../features/overview/DataOverview";
 import { ScreenEditor } from "../features/screen-editor/ScreenEditor";
-import { fetchDeviceConfig, fetchDevices, fetchExamTarget, fetchProviders, fetchSnapshot } from "../services/hub-api";
+import { fetchSnapshot } from "../services/hub-api";
+import { fetchHubMetadata } from "../services/hub-metadata";
 import { connectSnapshotSocket } from "../services/snapshot-socket";
 import { defaultDeviceConfig, normalizeDeviceConfig } from "../state/default-config";
 import {
@@ -82,6 +83,9 @@ export function App() {
   const [legacyConnections, setLegacyConnections] = useState(0);
   const [providers, setProviders] = useState<ProviderState[]>([]);
   const [examTarget, setExamTarget] = useState<ExamTargetResponse | null>(null);
+  const metadataRequest = useRef(0);
+  const acceptedMetadataRequest = useRef(0);
+  const examTargetSave = useRef(0);
   const [draftState, setDraftState] = useState<DraftState>(restoreDraft);
 
   useEffect(() => { window.scrollTo(0, 0); }, [view]);
@@ -93,20 +97,23 @@ export function App() {
   }, []);
 
   const refresh = useCallback(async (signal?: AbortSignal) => {
-    const [nextSnapshot, config, deviceResponse, providerResponse, examTargetResponse] = await Promise.all([
-      fetchSnapshot(signal),
-      fetchDeviceConfig(signal),
-      fetchDevices(signal),
-      fetchProviders(signal),
-      fetchExamTarget(signal)
-    ]);
-    setSnapshot(nextSnapshot);
-    setDevices(deviceResponse.devices);
-    setLegacyConnections(deviceResponse.legacyConnections);
-    setProviders(providerResponse.providers);
-    setExamTarget(examTargetResponse);
-    acceptServerState(config);
-    setApiError("");
+    const request = ++metadataRequest.current;
+    const save = examTargetSave.current;
+    const result = await fetchHubMetadata(signal);
+    if (signal?.aborted || request < acceptedMetadataRequest.current) return;
+    acceptedMetadataRequest.current = request;
+    if (result.config.status === "fulfilled") acceptServerState(result.config.value);
+    if (result.devices.status === "fulfilled") {
+      setDevices(result.devices.value.devices);
+      setLegacyConnections(result.devices.value.legacyConnections);
+    }
+    if (result.providers.status === "fulfilled") setProviders(result.providers.value.providers);
+    // A GET started before a successful PUT must not restore the previous target.
+    if (result.examTarget.status === "fulfilled" && save === examTargetSave.current) {
+      setExamTarget(result.examTarget.value);
+    }
+    setApiError(Object.values(result).some(item => item.status === "rejected")
+      ? "部分配置暂时无法读取，已有数据与草稿已保留，将自动重试" : "");
   }, [acceptServerState]);
 
   useEffect(() => connectSnapshotSocket(
@@ -117,19 +124,14 @@ export function App() {
 
   useEffect(() => {
     const controller = new AbortController();
+    void fetchSnapshot(controller.signal).then(nextSnapshot => {
+      if (!controller.signal.aborted) setSnapshot(current => current ?? nextSnapshot);
+    }).catch(() => undefined);
     void refresh(controller.signal).catch(() => {
       if (!controller.signal.aborted) setApiError("正在等待 Hub 的配置与数据源信息");
     });
     const timer = window.setInterval(() => {
-      void Promise.all([
-        fetchDeviceConfig(controller.signal), fetchDevices(controller.signal), fetchProviders(controller.signal)
-      ]).then(([config, deviceResponse, providerResponse]) => {
-        acceptServerState(config);
-        setDevices(deviceResponse.devices);
-        setLegacyConnections(deviceResponse.legacyConnections);
-        setProviders(providerResponse.providers);
-        setApiError("");
-      }).catch(() => undefined);
+      void refresh(controller.signal);
     }, 5000);
     return () => {
       controller.abort();
@@ -172,7 +174,10 @@ export function App() {
         {apiError ? <p className="service-notice" role="status">{apiError}</p> : null}
       <div className="view-stage" key={view}>
         {view === "overview" ? <DataOverview snapshot={snapshot} connection={connection}
-          connectedDevices={connectedDevices} examTarget={examTarget} onExamTargetSaved={setExamTarget}
+          connectedDevices={connectedDevices} examTarget={examTarget} onExamTargetSaved={response => {
+            examTargetSave.current += 1;
+            setExamTarget(response);
+          }}
           config={draftState.base} remoteReady={remoteReady} snapshotLabel={snapshotLabel} onEdit={() => setView("editor")} onConnections={() => setView("connections")}
           edition={edition} shell={preferences.shell} reduced={reduced} paused={preferences.paused} /> : null}
         {view === "editor" ? <ScreenEditor

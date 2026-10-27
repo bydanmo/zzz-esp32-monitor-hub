@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include "driver/gpio.h"
+#include "driver/ledc.h"
 #include "driver/spi_master.h"
 #include "esp_check.h"
 #include "esp_lcd_panel_io.h"
@@ -23,6 +24,8 @@ static board_display_flush_done_cb_t flush_done_cb;
 static void *flush_done_context;
 static SemaphoreHandle_t transfer_done;
 static volatile bool transfer_in_progress;
+static uint8_t brightness=100;
+static bool backlight_enabled=true;
 
 static bool on_color_trans_done(esp_lcd_panel_io_handle_t io,
                                 esp_lcd_panel_io_event_data_t *event_data,
@@ -136,12 +139,23 @@ void board_display_init(void)
     };
     ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)LCD_HOST, &io_config, &lcd_io));
 
-    const gpio_config_t backlight_config = {
-        .pin_bit_mask = 1ULL << BOARD_LCD_BACKLIGHT_GPIO,
-        .mode = GPIO_MODE_OUTPUT,
+    const ledc_timer_config_t backlight_timer = {
+        .speed_mode=LEDC_LOW_SPEED_MODE,
+        .timer_num=LEDC_TIMER_0,
+        .duty_resolution=LEDC_TIMER_10_BIT,
+        .freq_hz=5000,
+        .clk_cfg=LEDC_AUTO_CLK,
     };
-    ESP_ERROR_CHECK(gpio_config(&backlight_config));
-    ESP_ERROR_CHECK(gpio_set_level(BOARD_LCD_BACKLIGHT_GPIO, 1));
+    ESP_ERROR_CHECK(ledc_timer_config(&backlight_timer));
+    const ledc_channel_config_t backlight_channel = {
+        .gpio_num=BOARD_LCD_BACKLIGHT_GPIO,
+        .speed_mode=LEDC_LOW_SPEED_MODE,
+        .channel=LEDC_CHANNEL_0,
+        .timer_sel=LEDC_TIMER_0,
+        .duty=1023,
+        .hpoint=0,
+    };
+    ESP_ERROR_CHECK(ledc_channel_config(&backlight_channel));
     send_st7796s_init_sequence();
     /* The panel shows whatever its RAM held after reset until LVGL draws. Clear it
      * first so a cold boot does not flash noise on the desk. */
@@ -151,8 +165,19 @@ void board_display_init(void)
 
 void board_display_set_backlight(bool enabled)
 {
-    ESP_ERROR_CHECK(gpio_set_level(BOARD_LCD_BACKLIGHT_GPIO, enabled ? 1 : 0));
+    backlight_enabled=enabled;
+    board_display_set_brightness(brightness);
 }
+
+void board_display_set_brightness(uint8_t percent)
+{
+    brightness=percent<10?10:percent>100?100:percent;
+    uint32_t duty=backlight_enabled ? (brightness*1023u+50u)/100u : 0;
+    ESP_ERROR_CHECK(ledc_set_duty(LEDC_LOW_SPEED_MODE,LEDC_CHANNEL_0,duty));
+    ESP_ERROR_CHECK(ledc_update_duty(LEDC_LOW_SPEED_MODE,LEDC_CHANNEL_0));
+}
+
+uint8_t board_display_get_brightness(void) { return brightness; }
 
 esp_err_t board_display_wait(void)
 {

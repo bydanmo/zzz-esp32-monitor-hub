@@ -1,4 +1,6 @@
 #include "network_client.h"
+#include "crt_clock.h"
+#include "config_delivery.h"
 
 #include <limits.h>
 #include <math.h>
@@ -11,6 +13,7 @@
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_mac.h"
+#include "esp_random.h"
 #include "esp_netif.h"
 #include "esp_timer.h"
 #include "esp_websocket_client.h"
@@ -19,6 +22,11 @@
 #include "nvs_flash.h"
 
 #include "wifi_config.h"
+#if __has_include("study_pairing.h")
+#include "study_pairing.h"
+#else
+#define MONITOR_STUDY_KEY ""
+#endif
 #include "ui/ui_text_zh.h"
 
 static const char *TAG = "network-client";
@@ -49,10 +57,15 @@ static monitor_telemetry_t state = {
 static uint32_t state_version = 1;
 static uint32_t consumed_version;
 static esp_websocket_client_handle_t websocket;
-static bool hello_pending;
-static bool config_ack_pending;
-static uint32_t config_ack_revision;
+static monitor_config_delivery_t config_delivery; /* guarded by state_lock */
 static char device_id[32];
+static char study_action_json[256];
+static char study_action_id[40];
+static uint32_t study_action_sequence;
+static int64_t study_action_started_ms;
+static study_receiver_t study_receiver;
+static char pending_study_ack[40]; /* set only after an entire study batch commits */
+static int requested_study_page = -1; /* guarded by state_lock */
 
 static void ensure_device_id(void)
 {
@@ -77,6 +90,9 @@ static void publish_connection(monitor_connection_state_t connection)
 static void publish_hub_disconnected(void)
 {
     portENTER_CRITICAL(&state_lock);
+    monitor_config_delivery_disconnected(&config_delivery);
+    study_action_json[0]='\0';
+    if (state.study_action==STUDY_ACTION_PENDING) state.study_action=STUDY_ACTION_UNKNOWN;
     if (hub_connect_failures < HUB_OFFLINE_AFTER_FAILURES) hub_connect_failures++;
     state.connection = hub_connect_failures >= HUB_OFFLINE_AFTER_FAILURES
         ? MONITOR_CONNECTION_OFFLINE
@@ -225,6 +241,40 @@ static void parse_telemetry(const char *data, int length)
     }
 
     const cJSON *type = cJSON_GetObjectItemCaseSensitive(root, "type");
+    if (cJSON_IsString(type) && strcmp(type->valuestring, "studyActionResult") == 0) {
+        const cJSON *id=cJSON_GetObjectItemCaseSensitive(root,"id");
+        const cJSON *status=cJSON_GetObjectItemCaseSensitive(root,"status");
+        if (cJSON_IsString(id) && cJSON_IsString(status)) {
+            study_action_state_t result = strcmp(status->valuestring,"ok")==0 ? STUDY_ACTION_OK :
+                strcmp(status->valuestring,"conflict")==0 ? STUDY_ACTION_CONFLICT :
+                strcmp(status->valuestring,"error")==0 ? STUDY_ACTION_ERROR : STUDY_ACTION_UNKNOWN;
+            portENTER_CRITICAL(&state_lock);
+            if (strcmp(id->valuestring,study_action_id)==0) {
+                state.study_action=result; study_action_json[0]='\0'; state_version++;
+            }
+            portEXIT_CRITICAL(&state_lock);
+        }
+        cJSON_Delete(root); return;
+    }
+    if (cJSON_IsString(type) && (strcmp(type->valuestring, "study") == 0 ||
+                                 strcmp(type->valuestring, "studyTask") == 0)) {
+        /* WebSocket event dispatch is serialized; avoid another >1KB snapshot
+         * on its small worker stack while the transaction parser is running. */
+        static study_projection_t projection;
+        if (study_projection_receive(&study_receiver, root, esp_timer_get_time() / 1000, &projection)) {
+            portENTER_CRITICAL(&state_lock);
+            bool changed = state.study.available != projection.available || state.study.online != projection.online ||
+                state.study.revision != projection.revision || state.study.page != projection.page || state.study.status != projection.status;
+            state.study = projection;
+            memcpy(pending_study_ack, projection.batch, sizeof(pending_study_ack));
+            state_version++;
+            portEXIT_CRITICAL(&state_lock);
+            if (changed) ESP_LOGI(TAG, "Study projection committed: online=%d page=%u rows=%u revision=%lu; worker stack minimum free=%u",
+                projection.online, projection.page, projection.rows, (unsigned long)projection.revision, (unsigned)uxTaskGetStackHighWaterMark(NULL));
+        }
+        cJSON_Delete(root);
+        return;
+    }
     if (!cJSON_IsString(type) || strcmp(type->valuestring, "telemetry") != 0) {
         ESP_LOGW(TAG, "Ignored unexpected device message");
         cJSON_Delete(root);
@@ -245,6 +295,9 @@ static void parse_telemetry(const char *data, int length)
     bool valid_config = parse_display_config(
         cJSON_GetObjectItemCaseSensitive(root, "config"), &display);
     int64_t received_at_ms = esp_timer_get_time() / 1000;
+    uint32_t clock_seconds = 0;
+    const cJSON *device_time = cJSON_GetObjectItemCaseSensitive(root, "deviceTime");
+    bool clock_valid = cJSON_IsString(device_time) && crt_clock_parse(device_time->valuestring, &clock_seconds);
 
     portENTER_CRITICAL(&state_lock);
     state.cpu_percent = cpu_value;
@@ -254,10 +307,16 @@ static void parse_telemetry(const char *data, int length)
     state.memory_state = memory_state;
     state.exam_state = exam_state;
     state.received_at_ms = received_at_ms;
+    if (clock_valid) {
+        state.clock_seconds = clock_seconds;
+        state.clock_received_at_ms = received_at_ms;
+        state.clock_valid = true;
+    }
     state.connection = MONITOR_CONNECTION_ONLINE;
     hub_connect_failures = 0;
     if (valid_config) {
         state.display = display;
+        state.display_valid = true;
     }
     state_version++;
     portEXIT_CRITICAL(&state_lock);
@@ -275,9 +334,10 @@ static void websocket_event(void *handler_arg, esp_event_base_t base, int32_t ev
     (void)base;
     esp_websocket_event_data_t *event = event_data;
     if (event_id == WEBSOCKET_EVENT_CONNECTED) {
+        study_receiver.receiving = false;
         ESP_LOGI(TAG, "Hub WebSocket connected; waiting for telemetry");
         portENTER_CRITICAL(&state_lock);
-        hello_pending = true;
+        monitor_config_delivery_connected(&config_delivery);
         state.connection = MONITOR_CONNECTION_HUB_CONNECTING;
         state_version++;
         portEXIT_CRITICAL(&state_lock);
@@ -292,58 +352,137 @@ static void websocket_event(void *handler_arg, esp_event_base_t base, int32_t ev
     }
 }
 
+void network_client_study_page(uint16_t page)
+{
+    if (page > 333) return;
+    portENTER_CRITICAL(&state_lock);
+    requested_study_page = page;
+    portEXIT_CRITICAL(&state_lock);
+}
+
+bool network_client_study_action(const char *action, uint32_t task_id, const char *batch)
+{
+    if (!action || !batch || strlen(batch)>=40 ||
+        (strcmp(action,"start") && strcmp(action,"pause") && strcmp(action,"resume") && strcmp(action,"end") && strcmp(action,"done"))) return false;
+    uint32_t nonce=esp_random();
+    int64_t now=esp_timer_get_time()/1000;
+    portENTER_CRITICAL(&state_lock);
+    if (state.study_action==STUDY_ACTION_PENDING || !state.study.controls || !state.study.online ||
+        state.connection!=MONITOR_CONNECTION_ONLINE || now-state.study.received_at_ms>5000) {
+        portEXIT_CRITICAL(&state_lock); return false;
+    }
+    snprintf(study_action_id,sizeof(study_action_id),"s-%08lx-%lu",(unsigned long)nonce,(unsigned long)++study_action_sequence);
+    snprintf(study_action_json,sizeof(study_action_json),
+        "{\"type\":\"studyAction\",\"version\":1,\"id\":\"%s\",\"batch\":\"%s\",\"action\":\"%s\",\"taskId\":%lu}",
+        study_action_id,batch,action,(unsigned long)task_id);
+    state.study_action=STUDY_ACTION_PENDING; study_action_started_ms=now; state_version++;
+    portEXIT_CRITICAL(&state_lock);
+    return true;
+}
+
+static void flush_study_action(void)
+{
+    char json[256];
+    int64_t now=esp_timer_get_time()/1000;
+    portENTER_CRITICAL(&state_lock);
+    if (state.study_action==STUDY_ACTION_PENDING && now-study_action_started_ms>6500) {
+        state.study_action=STUDY_ACTION_UNKNOWN; study_action_json[0]='\0'; state_version++;
+    }
+    memcpy(json,study_action_json,sizeof(json));
+    study_action_json[0]='\0'; // Send once; never replay an uncertain write after reconnect.
+    portEXIT_CRITICAL(&state_lock);
+    if (!json[0]) return;
+    int length=(int)strlen(json);
+    if (esp_websocket_client_send_text(websocket,json,length,pdMS_TO_TICKS(1000))!=length) {
+        portENTER_CRITICAL(&state_lock);
+        state.study_action=STUDY_ACTION_UNKNOWN; state_version++;
+        portEXIT_CRITICAL(&state_lock);
+    }
+}
+
+static void flush_study_page(void)
+{
+    portENTER_CRITICAL(&state_lock);
+    int page = requested_study_page;
+    portEXIT_CRITICAL(&state_lock);
+    if (page < 0) return;
+    char json[64];
+    int length = snprintf(json, sizeof(json), "{\"type\":\"studyPage\",\"page\":%d}", page);
+    if (esp_websocket_client_send_text(websocket, json, length, pdMS_TO_TICKS(1000)) == length) {
+        portENTER_CRITICAL(&state_lock);
+        if (requested_study_page == page) requested_study_page = -1;
+        portEXIT_CRITICAL(&state_lock);
+    }
+}
+
+static void flush_study_ack(void)
+{
+    char batch[40];
+    portENTER_CRITICAL(&state_lock);
+    memcpy(batch, pending_study_ack, sizeof(batch));
+    portEXIT_CRITICAL(&state_lock);
+    if (!batch[0]) return;
+    cJSON *ack = cJSON_CreateObject();
+    if (ack == NULL) return;
+    cJSON_AddStringToObject(ack, "type", "studyAck");
+    cJSON_AddNumberToObject(ack, "version", 1);
+    cJSON_AddStringToObject(ack, "batch", batch);
+    char *json = cJSON_PrintUnformatted(ack);
+    cJSON_Delete(ack);
+    if (json == NULL) return;
+    int length = strlen(json);
+    bool sent = esp_websocket_client_send_text(websocket, json, length, pdMS_TO_TICKS(1000)) == length;
+    cJSON_free(json);
+    if (sent) {
+        portENTER_CRITICAL(&state_lock);
+        if (strcmp(batch, pending_study_ack) == 0) pending_study_ack[0] = '\0';
+        portEXIT_CRITICAL(&state_lock);
+    }
+}
+
 static void flush_outgoing_messages(void)
 {
     if (websocket == NULL || !esp_websocket_client_is_connected(websocket)) return;
 
-    bool send_hello = false;
-    bool send_ack = false;
-    uint32_t ack_revision = 0;
     portENTER_CRITICAL(&state_lock);
-    send_hello = hello_pending;
-    hello_pending = false;
-    send_ack = config_ack_pending;
-    ack_revision = config_ack_revision;
-    config_ack_pending = false;
+    monitor_config_message_t message = monitor_config_delivery_next(&config_delivery);
     portEXIT_CRITICAL(&state_lock);
+    if (message.kind == MONITOR_CONFIG_MESSAGE_NONE) { flush_study_ack(); flush_study_page(); flush_study_action(); return; }
 
     ensure_device_id();
-    if (send_hello) {
+    if (message.kind == MONITOR_CONFIG_MESSAGE_HELLO) {
         const esp_app_desc_t *description = esp_app_get_description();
-        char json[384];
+        char json[480];
         int length = snprintf(json, sizeof(json),
             "{\"type\":\"hello\",\"protocolVersion\":1,\"device\":{"
             "\"id\":\"%s\",\"model\":\"esp32-s3-st7796s-480x320\","
-            "\"firmwareVersion\":\"%s\",\"capabilities\":["
-            "\"touch\",\"tf-video\",\"config-ack\"]}}",
-            device_id, description->version);
-        if (length <= 0 || length >= (int)sizeof(json) ||
+            "\"firmwareVersion\":\"%s\",\"controlKey\":\"%s\",\"capabilities\":["
+            "\"touch\",\"tf-video\",\"config-ack\",\"study-v1\",\"study-control-v1\"]}}",
+            device_id, description->version, MONITOR_STUDY_KEY);
+        bool sent = length > 0 && length < (int)sizeof(json) &&
             esp_websocket_client_send_text(websocket, json, length,
-                                           pdMS_TO_TICKS(1000)) < 0) {
-            portENTER_CRITICAL(&state_lock);
-            hello_pending = true;
-            portEXIT_CRITICAL(&state_lock);
-        } else {
+                                           pdMS_TO_TICKS(1000)) == length;
+        portENTER_CRITICAL(&state_lock);
+        monitor_config_delivery_sent(&config_delivery, message, sent);
+        portEXIT_CRITICAL(&state_lock);
+        if (sent) {
             ESP_LOGI(TAG, "Device hello sent: %s firmware=%s", device_id,
                      description->version);
         }
-    }
-
-    if (send_ack) {
+    } else if (message.kind == MONITOR_CONFIG_MESSAGE_ACK) {
         char json[192];
         int length = snprintf(json, sizeof(json),
             "{\"type\":\"configAck\",\"deviceId\":\"%s\","
             "\"revision\":%lu,\"status\":\"applied\"}",
-            device_id, (unsigned long)ack_revision);
-        if (length <= 0 || length >= (int)sizeof(json) ||
+            device_id, (unsigned long)message.revision);
+        bool sent = length > 0 && length < (int)sizeof(json) &&
             esp_websocket_client_send_text(websocket, json, length,
-                                           pdMS_TO_TICKS(1000)) < 0) {
-            portENTER_CRITICAL(&state_lock);
-            config_ack_revision = ack_revision;
-            config_ack_pending = true;
-            portEXIT_CRITICAL(&state_lock);
-        } else {
-            ESP_LOGI(TAG, "Config ACK sent: revision=%lu", (unsigned long)ack_revision);
+                                           pdMS_TO_TICKS(1000)) == length;
+        portENTER_CRITICAL(&state_lock);
+        monitor_config_delivery_sent(&config_delivery, message, sent);
+        portEXIT_CRITICAL(&state_lock);
+        if (sent) {
+            ESP_LOGI(TAG, "Config ACK sent: revision=%lu", (unsigned long)message.revision);
         }
     }
 }
@@ -427,7 +566,6 @@ bool network_client_poll(monitor_telemetry_t *telemetry)
 void network_client_ack_config_applied(uint32_t revision)
 {
     portENTER_CRITICAL(&state_lock);
-    config_ack_revision = revision;
-    config_ack_pending = true;
+    monitor_config_delivery_applied(&config_delivery, revision);
     portEXIT_CRITICAL(&state_lock);
 }

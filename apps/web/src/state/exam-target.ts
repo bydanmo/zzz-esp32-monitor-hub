@@ -16,3 +16,43 @@ export function localInputToExamTarget(value: string): string {
   }
   return date.toISOString();
 }
+
+export interface ExamTargetDraft {
+  base: string;
+  value: string;
+  loaded: boolean;
+  pendingSave: boolean;
+  status: string;
+}
+
+export function createExamTargetDraft(): ExamTargetDraft {
+  return { base: "", value: "", loaded: false, pendingSave: false, status: "等待加载考试目标" };
+}
+
+export function receiveExamTarget(state: ExamTargetDraft, examAt: string | null,
+  status: string): ExamTargetDraft {
+  const value = examTargetToLocalInput(examAt);
+  if (state.pendingSave) return state;
+  if (value === state.base && state.loaded) return state;
+  const dirty = state.value !== state.base;
+  return {
+    ...state,
+    base: value,
+    value: dirty ? state.value : value,
+    loaded: true,
+    status: dirty ? "Hub 目标已读取，未保存的输入已保留" : status
+  };
+}
+
+export function acceptSavedExamTarget(state: ExamTargetDraft, submittedValue: string,
+  examAt: string | null, status: string): ExamTargetDraft {
+  const value = examTargetToLocalInput(examAt);
+  const editedDuringSave = state.value !== submittedValue;
+  return {
+    base: value,
+    value: editedDuringSave ? state.value : value,
+    loaded: true,
+    pendingSave: false,
+    status: editedDuringSave ? "本次目标已保存；后续修改仍未保存" : status
+  };
+}

@@ -7,6 +7,8 @@ typedef enum {
     MONITOR_PAGE_OVERVIEW = 0,
     MONITOR_PAGE_SYSTEM,
     MONITOR_PAGE_STUDY,
+    MONITOR_PAGE_SETTINGS, /* Local-only page; not a Hub page command. */
+    MONITOR_PAGE_COUNT,
 } monitor_page_t;
 
 typedef struct {

@@ -7,12 +7,30 @@
 #include "ui_shell.h"
 #include "ui_motion.h"
 #include "ui_layouts.generated.h"
+#include "device_settings.h"
 
 static unsigned char frame[320][480][3];
 static unsigned long long flushed_pixels;
 static lv_point_t pointer;
 static bool pressed;
 static int checks;
+static uint16_t requested_study_page;
+static int study_action_requests;
+static char requested_action[16];
+static uint32_t requested_task;
+static uint32_t local_store;
+static bool local_store_exists,local_save_failure;
+static int local_writes;
+static uint8_t applied_brightness;
+bool device_settings_storage_load(uint32_t *value) { *value=local_store;return local_store_exists; }
+bool device_settings_storage_save(uint32_t value) {
+    ++local_writes;if(local_save_failure)return false;local_store=value;local_store_exists=true;return true;
+}
+void device_settings_apply(uint8_t brightness,bool reduced) { applied_brightness=brightness;ui_motion_set_reduced(reduced); }
+void network_client_study_page(uint16_t page) { requested_study_page = page; }
+bool network_client_study_action(const char *action,uint32_t id,const char *batch) {
+    assert(batch);++study_action_requests;snprintf(requested_action,sizeof(requested_action),"%s",action);requested_task=id;return true;
+}
 
 static void flush(lv_disp_drv_t *driver, const lv_area_t *area, lv_color_t *pixels)
 {
@@ -107,13 +125,30 @@ static lv_obj_t *find_chart(lv_obj_t *object)
 
 static void expect_page(monitor_page_t page)
 {
-    const char *names[]={"总览","系统","学习"};
-    for(int i=0;i<3;++i) {
+    const char *names[]={"总览","系统","学习","设置"};
+    for(int i=0;i<MONITOR_PAGE_COUNT;++i) {
         lv_obj_t *label=find_label(lv_scr_act(),names[i]);
         assert(label);
         assert(lv_obj_get_style_outline_width(lv_obj_get_parent(label),0)==(i==(int)page?2:0));
     }
     ++checks;
+}
+
+static void tap_nav(monitor_page_t page)
+{
+    const char *names[]={"总览","系统","学习","设置"};
+    lv_obj_t *label=find_label(lv_scr_act(),names[page]);assert(label);
+    lv_area_t a;lv_obj_get_coords(lv_obj_get_parent(label),&a);
+    tap((a.x1+a.x2)/2,(a.y1+a.y2)/2,90);
+}
+
+static lv_obj_t *find_slider(lv_obj_t *object)
+{
+    if(lv_obj_check_type(object,&lv_slider_class))return object;
+    for(uint32_t i=0;i<lv_obj_get_child_cnt(object);++i) {
+        lv_obj_t *found=find_slider(lv_obj_get_child(object,i));if(found)return found;
+    }
+    return NULL;
 }
 
 /* Independent measurement from the rendered object tree and LVGL glyph
@@ -225,6 +260,7 @@ static uint32_t region_hash(int x, int y, int width, int height)
 int main(int argc, char **argv)
 {
     assert(argc == 2);
+    device_settings_init();
     lv_init();
     static lv_color_t pixels[480 * 24];
     static lv_disp_draw_buf_t buffer;
@@ -316,6 +352,23 @@ int main(int argc, char **argv)
     }
     config.page = MONITOR_PAGE_SYSTEM;
     ui_shell_apply_config(&config); step(400);
+    for(int card_index=0;card_index<2;++card_index) {
+        lv_obj_t *card=lv_obj_get_parent(find_label(lv_scr_act(),card_index?"内存":"CPU"));
+        lv_area_t a;lv_obj_get_coords(card,&a);
+        pointer=(lv_point_t){(a.x1+a.x2)/2,a.y2-28};pressed=true;step(80);
+        assert(lv_obj_has_state(card,LV_STATE_PRESSED));
+        lv_color32_t signal={.full=lv_color_to32(lv_color_hex(config.data_text_color))};
+        int xs[]={a.x1+1,a.x2-1,(a.x1+a.x2)/2,(a.x1+a.x2)/2};
+        int ys[]={(a.y1+a.y2)/2,(a.y1+a.y2)/2,a.y1+1,a.y2-1};
+        for(int edge=0;edge<4;++edge) {
+            assert(abs((int)frame[ys[edge]][xs[edge]][0]-signal.ch.blue)<9);
+            assert(abs((int)frame[ys[edge]][xs[edge]][1]-signal.ch.green)<9);
+            assert(abs((int)frame[ys[edge]][xs[edge]][2]-signal.ch.red)<9);
+            ++checks;
+        }
+        bitmap(argv[1],card_index?"memory-pressed-full-border":"cpu-pressed-full-border");
+        pressed=false;step(400);
+    }
     lv_obj_t *cpu_label = find_label(lv_scr_act(), "CPU");
     lv_obj_t *chart = find_chart(lv_obj_get_parent(cpu_label));
     assert(chart);
@@ -347,15 +400,15 @@ int main(int argc, char **argv)
     config.page = MONITOR_PAGE_OVERVIEW;
     ui_shell_apply_config(&config); step(400);
     expect_page(MONITOR_PAGE_OVERVIEW);
-    tap(240, 287, 90); expect_page(MONITOR_PAGE_SYSTEM);
+    tap_nav(MONITOR_PAGE_SYSTEM); expect_page(MONITOR_PAGE_SYSTEM);
     ui_shell_update(&model); step(50); expect_page(MONITOR_PAGE_SYSTEM);
-    tap(390, 287, 90); expect_page(MONITOR_PAGE_STUDY);
+    tap_nav(MONITOR_PAGE_STUDY); expect_page(MONITOR_PAGE_STUDY);
     tap(464, 6, 90); expect("连接详情");
     model.connection = MONITOR_CONNECTION_OFFLINE;
     ui_shell_update(&model); step(100); expect("Hub 已离线\nCPU");
     model.connection = MONITOR_CONNECTION_ONLINE;
     ui_shell_update(&model); step(100);
-    tap(390, 287, 90); expect_page(MONITOR_PAGE_STUDY);
+    tap_nav(MONITOR_PAGE_STUDY); expect_page(MONITOR_PAGE_STUDY);
     tap(464, 6, 90); expect("连接详情");
     tap(464, 6, 90); expect_page(MONITOR_PAGE_STUDY);
     tap(464, 6, 650); expect("动效已简化");
@@ -363,7 +416,7 @@ int main(int argc, char **argv)
     bitmap(argv[1], "motion-reduced");
     tap(464, 6, 650); expect("动效已开启");
     assert(!ui_motion_is_reduced()); ++checks;
-    tap(240, 287, 90); expect_page(MONITOR_PAGE_SYSTEM);
+    tap_nav(MONITOR_PAGE_SYSTEM); expect_page(MONITOR_PAGE_SYSTEM);
     config.show_cpu = config.show_memory = false;
     ui_shell_apply_config(&config); step(400); expect_page(MONITOR_PAGE_OVERVIEW);
     config.show_exam = false;
@@ -530,6 +583,102 @@ int main(int argc, char **argv)
     ui_shell_apply_config(&config); step(500);
     before=flushed_pixels; step(1000);
     assert(flushed_pixels==before); ++checks;
+    model.connection = MONITOR_CONNECTION_ONLINE;
+    model.study.available = true; model.study.online = true;
+    model.study.controls = true;
+    for(int i=0;i<3;++i) model.study.tasks[i].id=10+i;
+    model.study.status = STUDY_RUNNING; model.study.total = 5; model.study.completed = 1;
+    snprintf(model.study.session_id, sizeof(model.study.session_id), "session-a");
+    model.study.page = 0; model.study.pages = 2; model.study.rows = 3;
+    model.study_clock = 1425; model.study_stale = false;
+    snprintf(model.study.title, sizeof(model.study.title), "数学：函数与极限，先独立完成三道变式题");
+    snprintf(model.study.tasks[0].title, sizeof(model.study.tasks[0].title), "函数与极限：独立完成三道变式题，再核对遗漏条件");
+    snprintf(model.study.tasks[1].title, sizeof(model.study.tasks[1].title), "英语阅读与错题复盘");
+    snprintf(model.study.tasks[2].title, sizeof(model.study.tasks[2].title), "复习与推导过程核对");
+    model.study.tasks[1].done = true;
+    ui_shell_update(&model);
+    config.page = MONITOR_PAGE_STUDY; config.show_exam = false;
+    ui_shell_apply_config(&config); ui_shell_update(&model); step(500);
+    assert(find_label(lv_scr_act(), "23:45")); ++checks;
+    assert(find_label(lv_scr_act(), "正在专注")); ++checks;
+    bitmap(argv[1], "study-task-link-online");
+    tap(428, 220, 80); assert(requested_study_page == 1); ++checks;
+    /* Background presses never highlight the whole passive study surface. */
+    lv_obj_t *study_card=lv_obj_get_parent(find_label(lv_scr_act(),"TODAY / STUDY LINK"));
+    assert(!lv_obj_has_flag(study_card,LV_OBJ_FLAG_CLICKABLE));++checks;
+    pointer=(lv_point_t){50,194};pressed=true;step(100);
+    assert(!lv_obj_has_state(study_card,LV_STATE_PRESSED));++checks;
+    bitmap(argv[1],"study-background-pressed");pressed=false;step(200);
+    tap(90,222,80);assert(!strcmp(requested_action,"pause"));++checks;
+    int sent_count=study_action_requests;tap(90,222,80);assert(study_action_requests==sent_count);++checks;
+    model.study_action=STUDY_ACTION_PENDING;ui_shell_update(&model);step(50);
+    bitmap(argv[1],"study-action-pending");
+    model.study_action=STUDY_ACTION_OK;model.study.status=STUDY_PAUSED;ui_shell_update(&model);step(50);
+    tap(90,222,80);assert(!strcmp(requested_action,"resume"));++checks;
+    model.study_action=STUDY_ACTION_PENDING;ui_shell_update(&model);step(50);
+    model.study_action=STUDY_ACTION_OK;model.study.status=STUDY_RUNNING;ui_shell_update(&model);step(50);
+    tap(250,76,80);expect("确认完成这项任务？");bitmap(argv[1],"study-complete-confirm");
+    sent_count=study_action_requests;tap(100,220,80);assert(study_action_requests==sent_count);++checks;
+    tap(250,76,80);tap(350,220,80);assert(!strcmp(requested_action,"done") && requested_task==10);++checks;
+    model.study_action=STUDY_ACTION_PENDING;ui_shell_update(&model);step(50);
+    model.study_action=STUDY_ACTION_OK;ui_shell_update(&model);step(50);
+    tap(185,222,80);assert(!strcmp(requested_action,"end"));++checks;
+    model.study_action=STUDY_ACTION_PENDING;ui_shell_update(&model);step(50);
+    model.study_action=STUDY_ACTION_OK;ui_shell_update(&model);step(50);
+    model.study_stale = true;
+    ui_shell_update(&model); step(100);
+    assert(find_label(lv_scr_act(), "连接中断，等待同步")); ++checks;
+    sent_count=study_action_requests;tap(90,222,80);tap(250,76,80);assert(study_action_requests==sent_count);++checks;
+    bitmap(argv[1], "study-task-link-stale");
+    model.study_stale = false;
+    config.page = MONITOR_PAGE_SYSTEM;
+    ui_shell_apply_config(&config); ui_shell_update(&model); step(100);
+    assert(!find_label(lv_scr_act(), "23:45")); ++checks; /* Same session respects manual navigation. */
+    snprintf(model.study.session_id, sizeof(model.study.session_id), "session-b");
+    ui_shell_update(&model); step(100);
+    assert(find_label(lv_scr_act(), "23:45")); ++checks; /* Running -> running can still be a new session. */
+    model.study.status = STUDY_IDLE; model.study_clock = 0;
+    model.study.session_id[0] = '\0'; model.study.title[0] = '\0';
+    ui_shell_update(&model); step(100);
+    assert(find_label(lv_scr_act(), "等待开始")); ++checks;
+    bitmap(argv[1], "study-task-link-ended");
+    model.study_action=STUDY_ACTION_NONE;ui_shell_update(&model);step(50);
+    tap(90,222,80);assert(!strcmp(requested_action,"start") && requested_task==10);++checks;
+    /* Local controls remain available offline, independent of Hub visibility. */
+    device_settings_set_reduced_motion(false);
+    tap_nav(MONITOR_PAGE_SETTINGS);expect_page(MONITOR_PAGE_SETTINGS);expect("屏幕亮度");
+    assert(ui_shell_is_settings_open());++checks;
+    bitmap(argv[1],"settings-default");
+    tap(49,110,80);assert(applied_brightness==90);++checks;
+    tap(437,110,80);assert(applied_brightness==100);++checks;
+    lv_obj_t *slider=find_slider(lv_scr_act());assert(slider);
+    lv_area_t slider_area;lv_obj_get_coords(slider,&slider_area);
+    int writes_before=local_writes;
+    drag(slider_area.x2,(slider_area.y1+slider_area.y2)/2,slider_area.x1-slider_area.x2,0);
+    assert(applied_brightness==10 && local_writes==writes_before+1);++checks;
+    expect_page(MONITOR_PAGE_SETTINGS);bitmap(argv[1],"settings-minimum-brightness");
+    tap(423,177,80);assert(device_settings_get()->reduced_motion && ui_motion_is_reduced());++checks;
+    tap(423,221,80);assert(!device_settings_get()->screensaver);++checks;
+    bitmap(argv[1],"settings-screensaver-off");
+    local_save_failure=true;tap(437,110,80);expect("保存失败");
+    assert(applied_brightness==20 && device_settings_dirty());++checks;
+    bitmap(argv[1],"settings-save-failed");
+    local_save_failure=false;
+    lv_obj_t *retry=find_label(lv_scr_act(),"重试保存");assert(retry);
+    lv_area_t retry_area;lv_obj_get_coords(lv_obj_get_parent(retry),&retry_area);
+    tap((retry_area.x1+retry_area.x2)/2,(retry_area.y1+retry_area.y2)/2,80);
+    assert(!device_settings_dirty());++checks;expect("本机已保存");
+    device_settings_init();assert(applied_brightness==20 && device_settings_get()->reduced_motion && !device_settings_get()->screensaver);++checks;
+    model.connection=MONITOR_CONNECTION_OFFLINE;model.study_stale=true;
+    model.study.status=STUDY_RUNNING;snprintf(model.study.session_id,sizeof(model.study.session_id),"settings-keeps-focus");
+    ui_shell_update(&model);step(100);expect_page(MONITOR_PAGE_SETTINGS);
+    model.connection=MONITOR_CONNECTION_ONLINE;model.study_stale=false;
+    snprintf(model.study.session_id,sizeof(model.study.session_id),"settings-not-interrupted");
+    ui_shell_update(&model);step(100);expect_page(MONITOR_PAGE_SETTINGS);
+    config.show_cpu=config.show_memory=config.show_exam=false;ui_shell_apply_config(&config);step(100);
+    assert(ui_shell_is_settings_open());++checks;
+    tap(437,110,80);assert(applied_brightness==30);++checks;
+    bitmap(argv[1],"settings-local-only");
     printf("{\"checks\":%d,\"idleFlushPixels\":%llu,\"clockTickFlushPixels\":%llu,\"studyMotion4sFlushPixels\":%llu,\"systemMotion4sFlushPixels\":%llu,\"overviewMotion4sFlushPixels\":%llu,\"source\":\"LVGL 8.4 host renderer; synthetic fixtures\"}\n",
            checks, idle_pixels, clock_pixels, study_pixels, system_pixels, overview_pixels);
     return 0;

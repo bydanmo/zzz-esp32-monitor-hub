@@ -14,7 +14,7 @@ const configPath = path.join(dataDirectory, "exam-target.json");
 const temporaryPath = path.join(dataDirectory, "exam-target.tmp.json");
 /* An explicit offset (or Z) is required: a bare local time would silently mean a
  * different instant on another machine or after a timezone change. */
-const targetPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
+const targetPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/;
 
 export function validateExamTarget(input: unknown): ExamTarget {
   if (typeof input !== "object" || input === null) {
@@ -25,7 +25,14 @@ export function validateExamTarget(input: unknown): ExamTarget {
   if (typeof examAt !== "string" || !targetPattern.test(examAt)) {
     throw new Error("examAt 必须是带时区的 ISO 8601 时间，例如 2027-12-25T09:00:00+08:00");
   }
-  if (!Number.isFinite(Date.parse(examAt))) {
+  const year = Number(examAt.slice(0, 4));
+  const month = Number(examAt.slice(5, 7));
+  const day = Number(examAt.slice(8, 10));
+  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  // Date.parse normalizes e.g. February 30 instead of rejecting it.
+  if (month < 1 || month > 12 || day < 1 || day > daysInMonth[month - 1]
+      || Number(examAt.slice(11, 13)) > 23 || !Number.isFinite(Date.parse(examAt))) {
     throw new Error("examAt 不是有效时间");
   }
   return { examAt };

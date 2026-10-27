@@ -13,7 +13,15 @@ parser.add_argument("background",type=Path)
 parser.add_argument("video",type=Path)
 parser.add_argument("--start",type=float,default=.5)
 parser.add_argument("--duration",type=float,default=4)
+parser.add_argument("--source-bands",help="Optional x,y,width,height rectangles joined with semicolons; stack before covering the tube")
 args=parser.parse_args()
+bands=[]
+if args.source_bands:
+    try:bands=[list(map(int,part.split(','))) for part in args.source_bands.split(';')]
+    except ValueError:parser.error("source-bands must contain integer x,y,width,height rectangles")
+    if not 1<=len(bands)<=8 or any(len(b)!=4 or b[0]<0 or b[1]<0 or b[2]<1 or b[3]<1 for b in bands):
+        parser.error("source-bands needs 1-8 valid rectangles")
+    if len({b[2] for b in bands})!=1:parser.error("source bands must have equal widths")
 ffmpeg=shutil.which("ffmpeg")
 if not ffmpeg or not args.background.is_file() or not args.video.is_file():
     parser.error("FFmpeg and both source files are required")
@@ -26,16 +34,24 @@ subprocess.run([ffmpeg,"-hide_banner","-loglevel","error","-i",str(args.backgrou
 # A feathered superellipse retains the original bezel/corner pixels. This is
 # a video compositor; the original uploaded image is never rewritten.
 shape="clip((1-pow(abs((X-98.5)/98.5),4)-pow(abs((Y-74.5)/74.5),4))*1020,0,255)"
+fit="scale=198:150:force_original_aspect_ratio=increase:flags=lanczos,crop=198:150,format=gbrp[film];"
+if bands:
+    labels=''.join(f'[band{i}]' for i in range(len(bands)))
+    parts=''.join(f'[band{i}]crop={w}:{h}:{x}:{y}[cut{i}];' for i,(x,y,w,h) in enumerate(bands))
+    if len(bands)==1:
+        x,y,w,h=bands[0];film_filter=f'[1:v]fps=30,crop={w}:{h}:{x}:{y},'+fit
+    else:film_filter=f'[1:v]fps=30,split={len(bands)}'+labels+';'+parts+''.join(f'[cut{i}]' for i in range(len(bands)))+f'vstack=inputs={len(bands)},'+fit
+else:film_filter='[1:v]fps=30,'+fit
 graph=(f"[0:v]{base},format=gbrp,split=2[base][cut];"
        "[cut]crop=198:150:145:82[old];"
-       "[1:v]fps=30,scale=192:108:flags=lanczos,pad=198:150:3:21:color=0x050709,format=gbrp[film];"
+       +film_filter+
        f"nullsrc=s=198x150:r=30,format=gbrp,geq=r='{shape}':g='{shape}':b='{shape}'[mask];"
        "[old][film][mask]maskedmerge,split=2[patch][overlay];"
        "[base][overlay]overlay=145:82:format=auto,format=yuv420p[scene]")
 subprocess.run([ffmpeg,"-hide_banner","-loglevel","error","-filter_complex_threads","1","-loop","1","-framerate","30","-i",str(args.background),"-ss",str(args.start),"-i",str(args.video),"-filter_complex",graph,
                 "-map","[patch]","-t",str(args.duration),"-an","-pix_fmt","rgb565be","-f","rawvideo","-y",str(stage/"crt-window-30fps.rgb565"),
                 "-map","[scene]","-t",str(args.duration),"-an","-c:v","libx264","-crf","18","-pix_fmt","yuv420p","-movflags","+faststart","-y",str(preview/"crt-scene-preview.mp4")],check=True)
-subprocess.run([ffmpeg,"-hide_banner","-loglevel","error","-ss",str(args.start),"-i",str(args.video),"-t",str(args.duration),"-an","-vf","fps=30,scale=480:270:flags=lanczos","-c:v","libx264","-crf","18","-pix_fmt","yuv420p","-movflags","+faststart","-y",str(preview/"crt-content.mp4")],check=True)
+subprocess.run([ffmpeg,"-hide_banner","-loglevel","error","-ss",str(args.start),"-i",str(args.video),"-t",str(args.duration),"-an","-filter_complex",film_filter.replace('[1:v]','[0:v]').rstrip(';'),"-map","[film]","-c:v","libx264","-crf","18","-pix_fmt","yuv420p","-movflags","+faststart","-y",str(preview/"crt-content.mp4")],check=True)
 # User originals remain at their source path.
 variants=[]
 for name,file,width,height,x,y,fps,cache in [
@@ -47,7 +63,7 @@ for name,file,width,height,x,y,fps,cache in [
     item=dict(id=name,file=file,width=width,height=height,x=x,y=y,fps=fps,frameBytes=frame_bytes,frameCount=len(payload)//frame_bytes,bytes=len(payload),crc32=f"{zlib.crc32(payload):08x}",sha256=hashlib.sha256(payload).hexdigest(),cache=cache)
     if name=="crt":assert abs(item["frameCount"]/fps-args.duration)<1/fps
     variants.append(item);shutil.copyfile(stage/file,serve/file)
-manifest=dict(schemaVersion=1,mode="crt-room",startSeconds=args.start,durationSeconds=args.duration,speed=1,sourceBackgroundSha256=hashlib.sha256(args.background.read_bytes()).hexdigest(),sourceVideoSha256=hashlib.sha256(args.video.read_bytes()).hexdigest(),variants=variants,deviceMeasured=False)
+manifest=dict(schemaVersion=1,mode="crt-room",startSeconds=args.start,durationSeconds=args.duration,speed=1,fit="cover",sourceBands=bands,clock="firmware UTC+8 dot matrix overlay",sourceBackgroundSha256=hashlib.sha256(args.background.read_bytes()).hexdigest(),sourceVideoSha256=hashlib.sha256(args.video.read_bytes()).hexdigest(),variants=variants,deviceMeasured=False)
 (stage/"manifest.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding="utf-8")
 (preview/"crt-manifest.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding="utf-8")
 rows=['    {"/sdcard/%s", "%s", %d,%d,%d,%d,%d,%d,0x%s},'%(v["cache"],v["file"],v["width"],v["height"],v["x"],v["y"],v["fps"],v["bytes"],v["crc32"]) for v in variants]

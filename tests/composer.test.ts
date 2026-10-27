@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { defaultDeviceConfig } from "../apps/web/src/state/default-config.ts";
-import { acceptSavedDraft, createDraftState, discardDraft, isDraftDirty, receiveRemote } from "../apps/web/src/state/draft-store.ts";
+import { acceptSavedDraft, createDraftState, discardDraft, isDraftDirty, keepLocal, receiveRemote } from "../apps/web/src/state/draft-store.ts";
 import { availablePreviewPages, withPreviewPage } from "../apps/web/src/state/preview-config.ts";
 
 const config = () => structuredClone(defaultDeviceConfig);
@@ -83,6 +83,28 @@ test("迟到的保存响应不能使基准版本倒退", () => {
   const done = acceptSavedDraft(current, initial, { ...initial, revision: 2 }, "Hub 已保存");
   assert.equal(done.base.revision, 3);
   assert.equal(done.pendingSave, false);
+});
+
+test("迟到的旧轮询不能回退已保存的配置", () => {
+  const initial = config();
+  const submitted = { ...initial, title: "新配置" };
+  const saved = acceptSavedDraft({ ...createDraftState(initial), draft: submitted, pendingSave: true },
+    submitted, { ...submitted, revision: 3 }, "已保存");
+  const polled = receiveRemote(saved, { ...initial, revision: 2 });
+  assert.equal(polled, saved);
+  assert.equal(polled.base.revision, 3);
+  assert.equal(polled.draft.title, "新配置");
+});
+
+test("迟到的旧轮询不能替换已获知的较新冲突", () => {
+  const initial = config();
+  const dirty = { ...createDraftState(initial), draft: { ...initial, title: "本地草稿" } };
+  const newer = receiveRemote(dirty, { ...initial, revision: 3, title: "远端最新" });
+  const stale = receiveRemote(newer, { ...initial, revision: 2, title: "远端旧值" });
+  assert.equal(stale, newer);
+  assert.equal(stale.conflict?.revision, 3);
+  assert.equal(keepLocal(stale).base.revision, 3);
+  assert.equal(discardDraft(stale).draft.title, "远端最新");
 });
 
 test("放弃草稿优先恢复已获知的最新远端版本", () => {

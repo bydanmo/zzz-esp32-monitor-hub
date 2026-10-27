@@ -82,6 +82,15 @@ export class DeviceSessionRegistry {
     return false;
   }
 
+  supports(socket: DeviceSocket, capability: string): boolean {
+    return this.sessions.get(socket)?.capabilities.includes(capability) ?? false;
+  }
+
+  markSeen(socket: DeviceSocket): void {
+    const session = this.sessions.get(socket);
+    if (session) session.lastSeenAt = this.clock().toISOString();
+  }
+
   markPushed(revision: number, sockets: DeviceSocket[]): void {
     for (const socket of sockets) {
       const session = this.sessions.get(socket);
@@ -89,7 +98,6 @@ export class DeviceSessionRegistry {
       session.pushedRevision = revision;
       session.configState = "pushed";
       session.rejectionReason = null;
-      session.lastSeenAt = this.clock().toISOString();
     }
   }
 

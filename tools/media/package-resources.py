@@ -8,7 +8,7 @@ import zlib
 
 ROOT = Path(__file__).resolve().parents[2]
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--output', type=Path, default=ROOT / '.runtime/releases/zzz-monitor-resources-v0.1.0.zip')
+parser.add_argument('--output', type=Path, default=ROOT / '.runtime/releases/zzz-monitor-resources-v0.4.0.zip')
 args = parser.parse_args()
 required = [
     'apps/web/public/motion-assets/crt-background.rgb565',

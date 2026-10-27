@@ -20,6 +20,8 @@ export function isDraftDirty(state: DraftState): boolean {
 }
 
 export function receiveRemote(state: DraftState, remote: DeviceDisplayConfig): DraftState {
+  const newestRevision = Math.max(state.base.revision, state.conflict?.revision ?? 0);
+  if (remote.revision < newestRevision) return state;
   if (remote.revision === state.base.revision && sameEditableConfig(remote, state.base)) return state;
   if (isDraftDirty(state) || state.pendingSave) return { ...state, conflict: remote, status: "远端配置已更新" };
   return { base: remote, draft: remote, conflict: null, status: "已载入远端配置" };

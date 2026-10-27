@@ -12,8 +12,10 @@
 #include "ui_text_zh.h"
 #include "ui_tokens.generated.h"
 #include "ui_art.h"
+#include "device_settings.h"
 
 LV_FONT_DECLARE(ui_font_zh_16);
+LV_FONT_DECLARE(ui_font_study_16);
 LV_FONT_DECLARE(ui_font_numeric_28);
 LV_FONT_DECLARE(ui_font_numeric_40);
 LV_FONT_DECLARE(ui_font_numeric_56);
@@ -83,9 +85,11 @@ static lv_obj_t *status_plate;
 static lv_obj_t *status_dot;
 static lv_obj_t *content;
 static lv_obj_t *navigation;
-static lv_obj_t *nav_buttons[3];
-static lv_obj_t *nav_labels[3];
-static lv_obj_t *nav_indicators[3];
+static lv_obj_t *nav_buttons[MONITOR_PAGE_COUNT];
+static lv_obj_t *nav_labels[MONITOR_PAGE_COUNT];
+static lv_obj_t *nav_indicators[MONITOR_PAGE_COUNT];
+static lv_obj_t *settings_slider, *settings_value, *settings_status, *settings_retry;
+static bool settings_save_failed;
 static lv_font_t font_countdown;
 static lv_font_t font_countdown_compact;
 static lv_obj_t *countdown_value;
@@ -94,6 +98,13 @@ static int countdown_ticket_width;
 static lv_obj_t *countdown_time;
 static lv_obj_t *countdown_state;
 static lv_obj_t *connection_details;
+static lv_obj_t *study_clock_label, *study_title_label, *study_state_label;
+static lv_obj_t *study_rows[3], *study_page_label, *study_prev, *study_next, *study_hint;
+static lv_obj_t *study_row_buttons[3], *study_checks[3], *study_check_labels[3];
+static lv_obj_t *study_action_button, *study_action_label, *study_confirm;
+static lv_obj_t *study_end_button;
+static uint32_t study_selected_id = UINT32_MAX, study_confirm_id;
+static bool study_local_pending;
 static metric_view_t cpu_view;
 static metric_view_t memory_view;
 static ui_router_t router;
@@ -122,6 +133,7 @@ static monitor_display_config_t active_config = {
 
 static void rebuild_content(void);
 static void update_dynamic_content(void);
+static void update_study_projection(void);
 
 static lv_color_t ticket_ink(void)
 {
@@ -239,14 +251,15 @@ static lv_obj_t *make_card(int x, int y, int width, int height)
     lv_obj_set_style_shadow_width(card, 0, 0);
     lv_obj_set_style_shadow_opa(card, LV_OPA_60, 0);
     lv_obj_set_style_pad_all(card, 0, 0);
-    lv_obj_clear_flag(card, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_clear_flag(card, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
     /* Both flags are needed: the card is the pressed object, so the gesture and
      * the press point have to reach the content area to be interpreted there. */
     lv_obj_add_flag(card, LV_OBJ_FLAG_GESTURE_BUBBLE);
     lv_obj_add_flag(card, LV_OBJ_FLAG_EVENT_BUBBLE);
-    lv_obj_set_style_outline_color(card, lv_color_hex(active_config.data_text_color), LV_STATE_PRESSED);
-    lv_obj_set_style_outline_width(card, 2, LV_STATE_PRESSED);
-    lv_obj_set_style_translate_y(card, 1, LV_STATE_PRESSED);
+    /* Internal, final-pass borders remain visible on every content edge. */
+    lv_obj_set_style_border_color(card, lv_color_hex(active_config.data_text_color), LV_STATE_PRESSED);
+    lv_obj_set_style_border_width(card, 2, LV_STATE_PRESSED);
+    lv_obj_set_style_border_post(card, true, LV_STATE_PRESSED);
     lv_obj_t *lip = make_decor(card, 12, 5, width - 24, 1, UI_COLOR_TEXT_PRIMARY, 0);
     lv_obj_set_style_bg_opa(lip, LV_OPA_20, 0);
     return card;
@@ -263,7 +276,7 @@ static lv_obj_t *make_ticket(int x, int y, int width, int height)
 
 static void make_scene_print(void)
 {
-    static const char *words[] = {"MONITOR", "SYSTEM", "STUDY"};
+    static const char *words[] = {"MONITOR", "SYSTEM", "STUDY", "LOCAL"};
     lv_obj_t *word = make_label(content,words[router.active_page],
                                 router.active_page == MONITOR_PAGE_STUDY ? 284 : 110,-42,
                                 &ui_font_poster_84,lv_color_hex(active_config.data_text_color));
@@ -518,7 +531,7 @@ static void build_connection_panel(void)
 
 static void update_navigation(void)
 {
-    for (int index = 0; index < 3; ++index) {
+    for (int index = 0; index < MONITOR_PAGE_COUNT; ++index) {
         bool selected = router.active_page == (monitor_page_t)index;
         bool available = ui_router_page_available(&router, (monitor_page_t)index);
         /* A single dataText signal colour keeps user palettes consistent. */
@@ -539,8 +552,311 @@ static void update_navigation(void)
     }
 }
 
+static void study_page_event(lv_event_t *event)
+{
+    int delta = (int)(intptr_t)lv_event_get_user_data(event);
+    int page = (int)latest_model.study.page + delta;
+    if (!latest_model.study.online || latest_model.study_stale || page < 0 || page >= latest_model.study.pages) return;
+    network_client_study_page((uint16_t)page);
+}
+
+static bool study_can_control(void)
+{
+    return latest_model.study.online && !latest_model.study_stale && latest_model.study.controls &&
+           !study_local_pending && latest_model.study_action!=STUDY_ACTION_PENDING;
+}
+
+static lv_obj_t *make_control_button(lv_obj_t *parent, int x, int y, int width, int height)
+{
+    lv_obj_t *button=lv_btn_create(parent);
+    lv_obj_remove_style_all(button);
+    lv_obj_set_pos(button,x,y); lv_obj_set_size(button,width,height);
+    lv_obj_set_style_bg_color(button,lv_color_hex(active_config.card_color),0);
+    lv_obj_set_style_bg_opa(button,LV_OPA_COVER,0);
+    lv_obj_set_style_radius(button,10,0);
+    lv_obj_set_style_border_width(button,1,0);
+    lv_obj_set_style_border_color(button,lv_color_hex(UI_COLOR_TEXT_SECONDARY),0);
+    lv_obj_set_style_bg_color(button,lv_color_hex(active_config.data_text_color),LV_STATE_PRESSED);
+    lv_obj_set_style_text_color(button,ticket_ink(),LV_STATE_PRESSED);
+    lv_obj_set_style_text_color(button,lv_color_hex(UI_COLOR_TEXT_PRIMARY),0);
+    lv_obj_set_style_text_font(button,&ui_font_study_16,0);
+    lv_obj_set_style_opa(button,LV_OPA_30,LV_STATE_DISABLED);
+    lv_obj_clear_flag(button,LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(button,LV_OBJ_FLAG_EVENT_BUBBLE | LV_OBJ_FLAG_GESTURE_BUBBLE);
+    return button;
+}
+
+static void settings_update_status(void)
+{
+    if (!settings_status) return;
+    lv_label_set_text(settings_status,settings_save_failed?"保存失败":
+        device_settings_dirty()?"更改后自动保存":"本机已保存");
+    if (settings_save_failed) lv_obj_clear_flag(settings_retry,LV_OBJ_FLAG_HIDDEN);
+    else lv_obj_add_flag(settings_retry,LV_OBJ_FLAG_HIDDEN);
+}
+
+static void settings_save(void)
+{
+    settings_save_failed=!device_settings_save();
+    settings_update_status();
+}
+
+static void settings_retry_event(lv_event_t *event) { (void)event; settings_save(); }
+
+static void settings_brightness_event(lv_event_t *event)
+{
+    if (lv_event_get_code(event)==LV_EVENT_VALUE_CHANGED) {
+        int value=lv_slider_get_value(settings_slider);
+        device_settings_preview_brightness(value);
+        lv_label_set_text_fmt(settings_value,"%u%%",device_settings_get()->brightness);
+        lv_label_set_text(settings_status,"松手保存");
+    } else settings_save();
+}
+
+static void settings_step_event(lv_event_t *event)
+{
+    int delta=(int)(intptr_t)lv_event_get_user_data(event);
+    device_settings_preview_brightness((int)device_settings_get()->brightness+delta);
+    lv_slider_set_value(settings_slider,device_settings_get()->brightness,LV_ANIM_OFF);
+    lv_label_set_text_fmt(settings_value,"%u%%",device_settings_get()->brightness);
+    settings_save();
+}
+
+static void settings_toggle_event(lv_event_t *event)
+{
+    bool enabled=lv_obj_has_state(lv_event_get_target(event),LV_STATE_CHECKED);
+    if ((intptr_t)lv_event_get_user_data(event)==0) {
+        device_settings_set_reduced_motion(enabled);
+        settings_save();
+        rebuild_content(); /* Recreate/cancel ambient animations for this mode. */
+    } else {
+        device_settings_set_screensaver(enabled);
+        settings_save();
+    }
+}
+
+static void build_settings_page(void)
+{
+    const device_settings_t *local=device_settings_get();
+    lv_obj_t *card=make_card(0,0,UI_LAYOUT_CONTENT.width,UI_LAYOUT_CONTENT.height);
+    make_label(card,"本机设置",18,10,&ui_font_study_16,lv_color_hex(UI_COLOR_TEXT_PRIMARY));
+    settings_status=make_label(card,"",208,12,&ui_font_study_16,lv_color_hex(UI_COLOR_TEXT_SECONDARY));
+    settings_retry=make_control_button(card,354,7,84,28);
+    lv_obj_add_event_cb(settings_retry,settings_retry_event,LV_EVENT_CLICKED,NULL);
+    lv_obj_t *retry_label=lv_label_create(settings_retry);lv_label_set_text(retry_label,"重试保存");lv_obj_center(retry_label);
+    make_label(card,"屏幕亮度",18,45,&ui_font_study_16,lv_color_hex(UI_COLOR_TEXT_PRIMARY));
+    settings_value=make_label(card,"",326,35,FONT_METRIC,lv_color_hex(active_config.data_text_color));
+    lv_label_set_text_fmt(settings_value,"%u%%",local->brightness);
+    for(int i=0;i<2;++i) {
+        lv_obj_t *button=make_control_button(card,i?404:18,76,36,36);
+        lv_obj_add_event_cb(button,settings_step_event,LV_EVENT_CLICKED,(void *)(intptr_t)(i?10:-10));
+        lv_obj_t *label=lv_label_create(button);lv_label_set_text(label,i?"+":"-");lv_obj_center(label);
+    }
+    settings_slider=lv_slider_create(card);
+    lv_obj_set_pos(settings_slider,70,88);lv_obj_set_size(settings_slider,312,14);
+    lv_slider_set_range(settings_slider,DEVICE_BRIGHTNESS_MIN,DEVICE_BRIGHTNESS_MAX);
+    lv_slider_set_value(settings_slider,local->brightness,LV_ANIM_OFF);
+    lv_slider_set_mode(settings_slider,LV_SLIDER_MODE_NORMAL);
+    lv_obj_set_style_bg_color(settings_slider,lv_color_hex(0x08090A),LV_PART_MAIN);
+    lv_obj_set_style_bg_color(settings_slider,lv_color_hex(active_config.data_text_color),LV_PART_INDICATOR);
+    lv_obj_set_style_bg_color(settings_slider,lv_color_hex(UI_COLOR_TEXT_PRIMARY),LV_PART_KNOB);
+    lv_obj_set_style_pad_all(settings_slider,8,LV_PART_KNOB);
+    lv_obj_set_ext_click_area(settings_slider,14);
+    lv_obj_clear_flag(settings_slider,LV_OBJ_FLAG_GESTURE_BUBBLE);
+    lv_obj_add_event_cb(settings_slider,settings_brightness_event,LV_EVENT_VALUE_CHANGED,NULL);
+    lv_obj_add_event_cb(settings_slider,settings_brightness_event,LV_EVENT_RELEASED,NULL);
+    lv_obj_add_event_cb(settings_slider,settings_brightness_event,LV_EVENT_PRESS_LOST,NULL);
+    make_label(card,"10% - 100% / 拖动即时预览",18,113,&ui_font_study_16,lv_color_hex(UI_COLOR_TEXT_SECONDARY));
+    const char *labels[]={"简化动效","自动屏保"};
+    const char *descriptions[]={"减少动画，让阅读更安静","空闲5分钟播放，播放5分钟返回"};
+    for(int i=0;i<2;++i) {
+        int y=141+i*44;
+        make_label(card,labels[i],18,y,&ui_font_study_16,lv_color_hex(UI_COLOR_TEXT_PRIMARY));
+        make_label(card,descriptions[i],18,y+20,&ui_font_study_16,lv_color_hex(UI_COLOR_TEXT_SECONDARY));
+        lv_obj_t *toggle=lv_switch_create(card);
+        lv_obj_set_pos(toggle,378,y+2);lv_obj_set_size(toggle,60,30);
+        lv_obj_set_style_bg_color(toggle,lv_color_hex(0x08090A),LV_PART_MAIN);
+        lv_obj_set_style_bg_color(toggle,lv_color_hex(active_config.data_text_color),LV_PART_INDICATOR|LV_STATE_CHECKED);
+        lv_obj_set_ext_click_area(toggle,6);
+        lv_obj_clear_flag(toggle,LV_OBJ_FLAG_GESTURE_BUBBLE);
+        if (i?local->screensaver:local->reduced_motion) lv_obj_add_state(toggle,LV_STATE_CHECKED);
+        lv_obj_add_event_cb(toggle,settings_toggle_event,LV_EVENT_VALUE_CHANGED,(void *)(intptr_t)i);
+    }
+    settings_update_status();
+}
+
+static void study_send_action(const char *action, uint32_t task_id)
+{
+    if (!study_can_control()) return;
+    study_local_pending=network_client_study_action(action,task_id,latest_model.study.batch);
+    update_study_projection();
+}
+
+static void study_focus_event(lv_event_t *event)
+{
+    (void)event;
+    study_status_t status=latest_model.study.status;
+    if (status==STUDY_READY) return;
+    study_send_action(status==STUDY_IDLE?"start":status==STUDY_RUNNING?"pause":"resume",study_selected_id);
+}
+
+static void study_end_event(lv_event_t *event)
+{
+    (void)event;
+    if (latest_model.study.status!=STUDY_IDLE) study_send_action("end",study_selected_id);
+}
+
+static void study_select_event(lv_event_t *event)
+{
+    if (lv_event_get_target(event)!=lv_event_get_current_target(event)) return;
+    int row=(int)(intptr_t)lv_event_get_user_data(event);
+    if (row>=latest_model.study.rows) return;
+    study_selected_id=latest_model.study.tasks[row].id;
+    update_study_projection();
+}
+
+static void study_confirm_event(lv_event_t *event)
+{
+    bool apply=(bool)(intptr_t)lv_event_get_user_data(event);
+    if (study_confirm) { lv_obj_del(study_confirm); study_confirm=NULL; }
+    if (apply) study_send_action("done",study_confirm_id);
+}
+
+static void study_done_event(lv_event_t *event)
+{
+    int row=(int)(intptr_t)lv_event_get_user_data(event);
+    if (!study_can_control() || row>=latest_model.study.rows || latest_model.study.tasks[row].done || study_confirm) return;
+    study_confirm_id=latest_model.study.tasks[row].id;
+    study_confirm=lv_obj_create(screen);
+    lv_obj_set_pos(study_confirm,UI_LAYOUT_CONTENT.x,UI_LAYOUT_CONTENT.y);
+    lv_obj_set_size(study_confirm,UI_LAYOUT_CONTENT.width,UI_LAYOUT_CONTENT.height);
+    lv_obj_set_style_bg_color(study_confirm,lv_color_hex(active_config.background_color),0);
+    lv_obj_set_style_bg_opa(study_confirm,LV_OPA_COVER,0);
+    lv_obj_set_style_border_color(study_confirm,lv_color_hex(active_config.data_text_color),0);
+    lv_obj_set_style_border_width(study_confirm,2,0);
+    lv_obj_set_style_pad_all(study_confirm,0,0);
+    lv_obj_clear_flag(study_confirm,LV_OBJ_FLAG_SCROLLABLE);
+    make_label(study_confirm,"确认完成这项任务？",20,18,&ui_font_study_16,lv_color_hex(UI_COLOR_TEXT_PRIMARY));
+    lv_obj_t *title=make_label(study_confirm,latest_model.study.tasks[row].title,20,58,&ui_font_study_16,lv_color_hex(active_config.data_text_color));
+    lv_obj_set_size(title,406,66);lv_label_set_long_mode(title,LV_LABEL_LONG_DOT);
+    make_label(study_confirm,"仅标记完成，不填预计用时",20,136,&ui_font_study_16,lv_color_hex(UI_COLOR_TEXT_SECONDARY));
+    for (int i=0;i<2;++i) {
+        lv_obj_t *button=make_control_button(study_confirm,20+i*214,180,194,42);
+        lv_obj_add_event_cb(button,study_confirm_event,LV_EVENT_CLICKED,(void *)(intptr_t)i);
+        lv_obj_t *label=lv_label_create(button);lv_label_set_text(label,i?"确认完成":"取消");lv_obj_center(label);
+    }
+}
+
+static void build_study_projection(void)
+{
+    lv_obj_t *card = make_card(0, 0, UI_LAYOUT_CONTENT.width, UI_LAYOUT_CONTENT.height);
+    make_label(card, "TODAY / STUDY LINK", 14, 12, FONT_TAG, lv_color_hex(UI_COLOR_TEXT_SECONDARY));
+    study_clock_label = make_label(card, "--:--", 14, 45, FONT_METRIC, lv_color_hex(active_config.data_text_color));
+    study_title_label = make_label(card, "", 14, 92, &ui_font_study_16, lv_color_hex(UI_COLOR_TEXT_PRIMARY));
+    lv_obj_set_size(study_title_label, 188, 42);
+    lv_label_set_long_mode(study_title_label, LV_LABEL_LONG_DOT);
+    study_state_label = make_label(card, "", 14, 138, &ui_font_study_16, lv_color_hex(UI_COLOR_TEXT_SECONDARY));
+    lv_obj_set_size(study_state_label, 192, 36);
+    lv_label_set_long_mode(study_state_label,LV_LABEL_LONG_WRAP);
+    study_hint = make_label(card, "", 14, 163, &ui_font_study_16, lv_color_hex(UI_COLOR_TEXT_SECONDARY));
+    lv_obj_set_size(study_hint, 210, 19);
+    lv_label_set_long_mode(study_hint, LV_LABEL_LONG_WRAP);
+    study_action_button=make_control_button(card,14,185,124,40);
+    lv_obj_add_event_cb(study_action_button,study_focus_event,LV_EVENT_CLICKED,NULL);
+    study_action_label=lv_label_create(study_action_button);lv_obj_center(study_action_label);
+    study_end_button=make_control_button(card,146,185,60,40);
+    lv_obj_add_event_cb(study_end_button,study_end_event,LV_EVENT_CLICKED,NULL);
+    lv_obj_t *end_label=lv_label_create(study_end_button);lv_label_set_text(end_label,"结束");lv_obj_center(end_label);
+    for (int i = 0; i < 3; ++i) {
+        lv_obj_t *row=make_control_button(card,220,38+i*47,224,44); study_row_buttons[i]=row;
+        lv_obj_set_style_bg_opa(row,LV_OPA_TRANSP,0);lv_obj_set_style_border_width(row,0,0);
+        lv_obj_set_style_bg_opa(row,LV_OPA_30,LV_STATE_PRESSED);
+        lv_obj_set_style_border_width(row,1,LV_STATE_CHECKED);
+        lv_obj_set_style_border_color(row,lv_color_hex(active_config.data_text_color),LV_STATE_CHECKED);
+        lv_obj_add_event_cb(row,study_select_event,LV_EVENT_CLICKED,(void *)(intptr_t)i);
+        study_rows[i] = make_label(row, "", 42, 3, &ui_font_study_16, lv_color_hex(UI_COLOR_TEXT_PRIMARY));
+        lv_obj_set_size(study_rows[i], 176, 38);
+        lv_label_set_long_mode(study_rows[i], LV_LABEL_LONG_DOT);
+        study_checks[i]=make_control_button(row,3,5,32,34);
+        lv_obj_add_event_cb(study_checks[i],study_done_event,LV_EVENT_CLICKED,(void *)(intptr_t)i);
+        study_check_labels[i]=lv_label_create(study_checks[i]);lv_obj_center(study_check_labels[i]);
+    }
+    study_page_label = make_label(card, "", 224, 194, &ui_font_study_16, lv_color_hex(UI_COLOR_TEXT_SECONDARY));
+    lv_obj_set_size(study_page_label, 110, 34);
+    lv_obj_t **buttons[] = {&study_prev, &study_next};
+    for (int i = 0; i < 2; ++i) {
+        lv_obj_t *b = make_control_button(card,340+i*52,183,48,42); *buttons[i] = b;
+        lv_obj_add_event_cb(b, study_page_event, LV_EVENT_CLICKED, (void *)(intptr_t)(i ? 1 : -1));
+        lv_obj_t *label = lv_label_create(b); lv_label_set_text(label, i ? ">" : "<"); lv_obj_center(label);
+    }
+}
+
+static void update_study_projection(void)
+{
+    if (!study_clock_label) return;
+    const study_projection_t *s = &latest_model.study;
+    bool online = s->online && !latest_model.study_stale;
+    bool pending=study_local_pending || latest_model.study_action==STUDY_ACTION_PENDING;
+    const study_task_t *selected=NULL;
+    for (int i=0;i<s->rows;++i) if (s->tasks[i].id==study_selected_id) selected=&s->tasks[i];
+    if (!selected) for (int i=0;i<s->rows;++i) if (!s->tasks[i].done) {
+        selected=&s->tasks[i];study_selected_id=selected->id;break;
+    }
+    uint32_t seconds = latest_model.study_clock;
+    char clock[32], page[64];
+    if (s->status == STUDY_IDLE) snprintf(clock, sizeof(clock), "--:--");
+    else snprintf(clock, sizeof(clock), "%02" PRIu32 ":%02" PRIu32, seconds / 60, seconds % 60);
+    lv_label_set_text(study_clock_label, clock);
+    lv_label_set_text(study_title_label, s->status==STUDY_IDLE && selected ? selected->title :
+                      s->title[0] ? s->title : "点击右侧任务，选择后开始。");
+    const char *status = !s->online ? "电脑服务离线" : latest_model.study_stale ? "连接中断，等待同步" :
+        s->status == STUDY_PAUSED ? "计时已暂停" : s->status == STUDY_READY ? "到点了，请在电脑确认" :
+        s->status == STUDY_IDLE ? "等待开始" : s->is_break ? "休息中" : "正在专注";
+    lv_label_set_text(study_state_label, status);
+    const char *hint=!online?"显示上次任务，等待同步":!s->controls?"设备操作未开启":pending?"正在等待电脑确认":
+        latest_model.study_action==STUDY_ACTION_OK?"操作已确认":
+        latest_model.study_action==STUDY_ACTION_CONFLICT?"状态已变化，请重试":
+        latest_model.study_action==STUDY_ACTION_ERROR?"操作失败，请检查电脑":
+        latest_model.study_action==STUDY_ACTION_UNKNOWN?"结果待核，请在电脑查看":"方框完成 / 点击选任务";
+    lv_label_set_text(study_hint,hint);
+    lv_label_set_text(study_action_label,pending?"等待确认":s->status==STUDY_IDLE?"开始25分":
+                      s->status==STUDY_RUNNING?"暂停计时":s->status==STUDY_PAUSED?"继续计时":"本段到点");
+    lv_obj_center(study_action_label);
+    bool can=study_can_control();
+    if (!can || s->status==STUDY_READY || (s->status==STUDY_IDLE && (!selected || selected->done)))
+        lv_obj_add_state(study_action_button,LV_STATE_DISABLED);
+    else lv_obj_clear_state(study_action_button,LV_STATE_DISABLED);
+    if (!can || s->status==STUDY_IDLE) lv_obj_add_state(study_end_button,LV_STATE_DISABLED);
+    else lv_obj_clear_state(study_end_button,LV_STATE_DISABLED);
+    for (int i = 0; i < 3; ++i) {
+        if (i>=s->rows) {
+            lv_obj_add_flag(study_checks[i],LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_state(study_row_buttons[i],LV_STATE_DISABLED);
+            lv_obj_clear_state(study_row_buttons[i],LV_STATE_CHECKED);
+            lv_label_set_text(study_rows[i],i==0?online?"今日暂无任务":"等待电脑重新连接":"");continue;
+        }
+        lv_obj_clear_flag(study_checks[i],LV_OBJ_FLAG_HIDDEN);
+        lv_label_set_text(study_check_labels[i],s->tasks[i].done?"x":"");lv_obj_center(study_check_labels[i]);
+        if (!can || s->tasks[i].done) lv_obj_add_state(study_checks[i],LV_STATE_DISABLED);
+        else lv_obj_clear_state(study_checks[i],LV_STATE_DISABLED);
+        if (!online || pending) lv_obj_add_state(study_row_buttons[i],LV_STATE_DISABLED);
+        else lv_obj_clear_state(study_row_buttons[i],LV_STATE_DISABLED);
+        if (s->tasks[i].id==study_selected_id) lv_obj_add_state(study_row_buttons[i],LV_STATE_CHECKED);
+        else lv_obj_clear_state(study_row_buttons[i],LV_STATE_CHECKED);
+        lv_label_set_text(study_rows[i], s->tasks[i].title);
+        lv_obj_set_style_text_opa(study_rows[i], s->tasks[i].done ? LV_OPA_60 : LV_OPA_COVER, 0);
+    }
+    snprintf(page, sizeof(page), "%u/%u 已完成\n第 %u/%u 页", s->completed, s->total, s->page + 1, s->pages);
+    lv_label_set_text(study_page_label, page);
+    if (!online || s->page == 0) lv_obj_add_state(study_prev, LV_STATE_DISABLED); else lv_obj_clear_state(study_prev, LV_STATE_DISABLED);
+    if (!online || s->page + 1 >= s->pages) lv_obj_add_state(study_next, LV_STATE_DISABLED); else lv_obj_clear_state(study_next, LV_STATE_DISABLED);
+}
+
 static void rebuild_content(void)
 {
+    if (settings_slider && device_settings_dirty()) settings_save();
+    settings_slider=settings_value=settings_status=settings_retry=NULL;
+    if (study_confirm) { lv_obj_del(study_confirm); study_confirm=NULL; }
     ui_motion_cancel(cpu_view.bar);
     ui_motion_cancel(memory_view.bar);
     lv_obj_clean(content);
@@ -551,15 +867,21 @@ static void rebuild_content(void)
     countdown_time = NULL;
     countdown_state = NULL;
     connection_details = NULL;
+    study_clock_label = study_title_label = study_state_label = NULL;
+    study_page_label = study_prev = study_next = study_hint = study_action_button = study_action_label = NULL;
+    memset(study_rows, 0, sizeof(study_rows));
     countdown_uses_compact_font = false;
     make_scene_print();
 
     if (showing_connection_panel) {
         build_connection_panel();
+    } else if (router.active_page==MONITOR_PAGE_SETTINGS) {
+        build_settings_page();
     } else if (router.active_page == MONITOR_PAGE_SYSTEM) {
         build_system_cards(active_config.show_cpu, active_config.show_memory);
     } else if (router.active_page == MONITOR_PAGE_STUDY) {
-        if (active_config.show_exam) make_countdown_card(UI_LAYOUT_STUDY_COUNTDOWN.x - UI_LAYOUT_CONTENT.x,
+        if (has_model && latest_model.study.available) build_study_projection();
+        else if (active_config.show_exam) make_countdown_card(UI_LAYOUT_STUDY_COUNTDOWN.x - UI_LAYOUT_CONTENT.x,
                                                          UI_LAYOUT_STUDY_COUNTDOWN.y - UI_LAYOUT_CONTENT.y,
                                                          UI_LAYOUT_STUDY_COUNTDOWN.width,
                                                          UI_LAYOUT_STUDY_COUNTDOWN.height);
@@ -589,7 +911,7 @@ static void content_pressed(lv_event_t *event)
 static void gesture_event(lv_event_t *event)
 {
     (void)event;
-    if (showing_connection_panel) return;
+    if (showing_connection_panel || router.active_page==MONITOR_PAGE_SETTINGS) return;
     lv_indev_t *input = lv_indev_get_act();
     if (input == NULL) return;
 
@@ -627,7 +949,8 @@ static void connection_event(lv_event_t *event)
     }
     if (lv_event_get_code(event) == LV_EVENT_LONG_PRESSED) {
         status_long_pressed = true;
-        ui_motion_set_reduced(!ui_motion_is_reduced());
+        device_settings_set_reduced_motion(!ui_motion_is_reduced());
+        settings_save_failed=!device_settings_save();
         showing_connection_panel = true;
         rebuild_content();
         return;
@@ -757,6 +1080,8 @@ static void update_dynamic_content(void)
     update_metric_view(&cpu_view, &cpu_history, &latest_model.cpu, &rendered_model.cpu, force);
     update_metric_view(&memory_view, &memory_history, &latest_model.memory, &rendered_model.memory, force);
     update_countdown(&latest_model, &rendered_model, force);
+    if (force || latest_model.study_action != rendered_model.study_action || memcmp(&latest_model.study, &rendered_model.study, sizeof(latest_model.study)) != 0 ||
+        latest_model.study_clock != rendered_model.study_clock || latest_model.study_stale != rendered_model.study_stale) update_study_projection();
     rendered_model = latest_model;
     has_rendered_model = true;
     force_render = false;
@@ -826,12 +1151,13 @@ void ui_shell_create(void)
         UI_TEXT_PAGE_OVERVIEW,
         UI_TEXT_PAGE_SYSTEM,
         UI_TEXT_PAGE_STUDY,
+        "设置",
     };
-    const int nav_width = UI_LAYOUT_NAVIGATION.width / 3;
-    for (int index = 0; index < 3; ++index) {
+    const int nav_width = UI_LAYOUT_NAVIGATION.width / MONITOR_PAGE_COUNT;
+    for (int index = 0; index < MONITOR_PAGE_COUNT; ++index) {
         const int x = index * nav_width + 4;
         /* The last target absorbs the division remainder so the row stays flush. */
-        const int segment_width = index == 2 ? UI_LAYOUT_NAVIGATION.width - 2 * nav_width : nav_width;
+        const int segment_width = index == MONITOR_PAGE_COUNT-1 ? UI_LAYOUT_NAVIGATION.width - (MONITOR_PAGE_COUNT-1)*nav_width : nav_width;
         const int width = segment_width - 8;
         nav_buttons[index] = lv_btn_create(navigation);
         lv_obj_set_pos(nav_buttons[index], x, 4);
@@ -848,7 +1174,7 @@ void ui_shell_create(void)
         lv_obj_add_event_cb(nav_buttons[index], nav_event, LV_EVENT_CLICKED,
                             (void *)(intptr_t)index);
         nav_labels[index] = make_label(nav_buttons[index], labels[index], 0, 7,
-                                       FONT_LABEL,
+                                       index==MONITOR_PAGE_SETTINGS?&ui_font_study_16:FONT_LABEL,
                                        lv_color_hex(UI_COLOR_TEXT_SECONDARY));
         lv_obj_set_width(nav_labels[index], width);
         lv_obj_set_style_text_align(nav_labels[index], LV_TEXT_ALIGN_CENTER, 0);
@@ -872,7 +1198,7 @@ void ui_shell_apply_config(const monitor_display_config_t *config)
     lv_obj_set_style_bg_color(screen, lv_color_hex(active_config.background_color), 0);
     lv_obj_set_style_bg_color(navigation, lv_color_hex(active_config.card_color), 0);
     lv_obj_set_style_bg_grad_color(navigation, lv_color_hex(active_config.background_color), 0);
-    for (int index = 0; index < 3; ++index) {
+    for (int index = 0; index < MONITOR_PAGE_COUNT; ++index) {
         lv_obj_set_style_bg_color(nav_indicators[index],
                                   lv_color_hex(active_config.background_color), 0);
     }
@@ -881,9 +1207,22 @@ void ui_shell_apply_config(const monitor_display_config_t *config)
 
 void ui_shell_update(const ui_model_t *model)
 {
+    bool focus_started = model->study.available && model->study.online && model->study.status == STUDY_RUNNING &&
+        (!has_model || latest_model.study.status == STUDY_IDLE ||
+         (model->study.session_id[0] && strcmp(model->study.session_id, latest_model.study.session_id) != 0));
+    bool study_changed = router.show_study != model->study.available;
+    bool was_study = router.active_page == MONITOR_PAGE_STUDY;
+    router.show_study = model->study.available;
+    if (study_changed) ui_router_apply_config(&router, &active_config, false);
     record_history(&cpu_history, &model->cpu, model->connection);
     record_history(&memory_history, &model->memory, model->connection);
+    if (latest_model.study_action!=model->study_action) study_local_pending=false;
     latest_model = *model;
     has_model = true;
+    bool follow = focus_started && !showing_connection_panel && router.active_page!=MONITOR_PAGE_SETTINGS && ui_router_set_page(&router, MONITOR_PAGE_STUDY);
+    if (follow || (study_changed && (was_study || router.active_page == MONITOR_PAGE_STUDY))) rebuild_content();
+    else if (study_changed) update_navigation();
     update_dynamic_content();
 }
+
+bool ui_shell_is_settings_open(void) { return router.active_page==MONITOR_PAGE_SETTINGS; }

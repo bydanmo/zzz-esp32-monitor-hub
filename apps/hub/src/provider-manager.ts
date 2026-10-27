@@ -71,9 +71,10 @@ export class ProviderManager {
     runtime.state = { ...runtime.state, lastAttemptAt: attemptedAt };
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    const collection = Promise.resolve().then(() => runtime.provider.collect(controller.signal));
     try {
       const metrics = await Promise.race([
-        runtime.provider.collect(controller.signal),
+        collection,
         new Promise<Metric[]>((_, reject) => {
           controller.signal.addEventListener("abort", () => reject(new Error("PROVIDER_TIMEOUT")), { once: true });
         })
@@ -91,6 +92,8 @@ export class ProviderManager {
         metricCount: runtime.metrics.length
       };
     } catch (error) {
+      // Preserve the last sample for diagnostics without presenting it as live data.
+      runtime.metrics = runtime.metrics.map((metric) => ({ ...metric, availability: "unavailable" }));
       runtime.state = {
         ...runtime.state,
         status: runtime.state.lastSuccessAt ? "degraded" : "failed",
@@ -99,7 +102,12 @@ export class ProviderManager {
       };
     } finally {
       clearTimeout(timeout);
-      runtime.running = false;
+      // Timing out the wait does not stop collectors that ignore AbortSignal.
+      // Keep their slot occupied until the underlying operation actually ends.
+      void collection.then(
+        () => { runtime.running = false; },
+        () => { runtime.running = false; }
+      );
     }
   }
 }

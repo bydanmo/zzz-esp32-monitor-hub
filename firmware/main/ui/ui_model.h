@@ -29,6 +29,10 @@ typedef struct {
     uint32_t exam_anchor_seconds;
     int64_t exam_anchor_ms;
     monitor_connection_state_t connection;
+    study_projection_t study;
+    uint32_t study_clock;
+    bool study_stale;
+    study_action_state_t study_action;
 } ui_model_t;
 
 void ui_model_init(ui_model_t *model);

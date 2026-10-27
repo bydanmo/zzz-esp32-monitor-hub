@@ -66,10 +66,19 @@ void ui_model_apply_telemetry(ui_model_t *model, const monitor_telemetry_t *tele
         model->exam.state = UI_DATA_UNAVAILABLE;
     }
     model->connection = telemetry->connection;
+    model->study = telemetry->study;
+    model->study_action = telemetry->study_action;
+    model->study_clock = model->study.stopwatch ? model->study.elapsed : model->study.remaining;
 }
 
 void ui_model_tick(ui_model_t *model, int64_t now_ms)
 {
+    int64_t age = now_ms - model->study.received_at_ms;
+    model->study_stale = age > 5000 || model->connection != MONITOR_CONNECTION_ONLINE;
+    uint32_t seconds = (uint32_t)(age > 5000 ? 5 : age > 0 ? age / 1000 : 0);
+    if (!model->study.online || model->study.status != STUDY_RUNNING) seconds = 0;
+    model->study_clock = model->study.stopwatch ? model->study.elapsed + seconds :
+        model->study.remaining > seconds ? model->study.remaining - seconds : 0;
     age_metric(&model->cpu, now_ms);
     age_metric(&model->memory, now_ms);
     age_metric(&model->exam, now_ms);

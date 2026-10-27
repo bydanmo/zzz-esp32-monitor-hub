@@ -37,7 +37,21 @@ powershell -ExecutionPolicy Bypass -File tools/firmware/build-firmware.ps1 -Flas
 
 ## 画面和资源
 
-三页包含大数字倒计时、CPU／内存仪表、24 点采样趋势、卡匣和导航。点击在线点查看连接详情，长按切换本次开机的简化动效。横向滑动切页，纵向拖动不误触切页。
+固件0.4.0包含三个数据页和独立本地设置页。数据页含大数字倒计时、CPU／内存仪表、24点采样趋势、可选今日任务与计时。点击在线点查看连接详情，长按切换并保存简化动效。监控卡片按压描边在内部后绘制，避免父容器裁切。
+
+## 本地设置
+
+底部第四项「设置」提供亮度10%–100%滑条与加减、简化动效、自动屏保开关。拖动即时预览，松手保存，重复相同值不反复写Flash；失败时显示重试。设置使用独立NVS键，离线可用，网页配色与普通遥测不会覆盖它。
+
+亮度由GPIO45的5kHz、10bit LEDC PWM控制，最低10%避免误关屏；播放触摸返回会恢复选定亮度。打开设置页期间不进入屏保，拖动滑条不切页，新专注会话不会抢走设置页。默认100%亮度、完整动效、屏保开启。
+
+本地持久化使用NVS的 `local_display/options` 版本化单键，坏格式回退默认值；主任务栈6144字节。维护设备已确认亮度实际变化，重启／断电保持尚未单独实体确认，不能用host存储夹具代替此项。
+
+## 可选学习控制
+
+支持选任务开始25分钟、暂停、继续、结束和弹窗确认完成。默认只读，须本机显式开启控制并执行 `python tools/firmware/pair-study-control.py`，重建／重启Hub和重新烧录固件。私有 `study_pairing.h` 与Hub配对文件均被忽略。电脑服务合同、回执和隔离验证见 [学习联动](../docs/study-link.md)。
+
+## 屏保与时钟
 
 长时间无触摸时，监控和屏保按 5+5 分钟循环；触摸返回监控。TF 需 MBR＋FAT32。缺卡、资源未就绪或播放失败时保留监控。默认源码不包含设备动画帧；下载可选资源或自行生成后启用屏保，步骤见 [素材说明](../docs/media.md)。
 
@@ -53,4 +67,4 @@ powershell -ExecutionPolicy Bypass -File tools/firmware/build-firmware.ps1 -Flas
 powershell -ExecutionPolicy Bypass -File tools/firmware/render-device-review.ps1 -Gcc C:/msys64/ucrt64/bin/gcc.exe
 ```
 
-这使用真实 LVGL 与测试遥测，不是硬件摄屏。渲染输出到本地 `.runtime/reviews/compact-layout/`；不应以主机刷新像素计数代替实机 FPS。
+这使用真实LVGL与测试遥测，不是硬件摄屏。渲染JSON默认在 `.runtime/device-review/`，原始BMP在 `.runtime/lvgl-host/raw/`，可用 `-Output` 指定目录。脚本还运行C时钟和本地设置存储检查；不应以主机刷新像素计数代替实机FPS。

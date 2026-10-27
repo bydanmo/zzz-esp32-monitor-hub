@@ -10,6 +10,7 @@ typedef struct {
     bool show_cpu;
     bool show_memory;
     bool show_exam;
+    bool show_study;
 } ui_router_t;
 
 void ui_router_init(ui_router_t *router, const monitor_display_config_t *config);

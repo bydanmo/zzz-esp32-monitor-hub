@@ -82,6 +82,10 @@ export class DeviceSessionRegistry {
     return false;
   }
 
+  supports(socket: DeviceSocket, capability: string): boolean {
+    return this.sessions.get(socket)?.capabilities.includes(capability) ?? false;
+  }
+
   markSeen(socket: DeviceSocket): void {
     const session = this.sessions.get(socket);
     if (session) session.lastSeenAt = this.clock().toISOString();

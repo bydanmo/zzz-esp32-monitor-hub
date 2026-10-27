@@ -1,12 +1,12 @@
 #Requires -Version 5.1
 [CmdletBinding()]
-param([string]$Gcc = 'C:\msys64\ucrt64\bin\gcc.exe')
+param([string]$Gcc = 'C:\msys64\ucrt64\bin\gcc.exe', [string]$Output = '.runtime/device-review')
 $ErrorActionPreference = 'Stop'
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 Push-Location $projectRoot
 try {
     $build = '.runtime/lvgl-host'
-    $output = '.runtime/reviews/compact-layout'
+    $output = $Output
     $raw = "$build/raw"
     New-Item -ItemType Directory -Force -Path $build,$output,$raw | Out-Null
     if (-not (Test-Path -LiteralPath $Gcc)) { throw 'Pass -Gcc with a native Windows GCC compiler.' }
@@ -30,12 +30,21 @@ try {
         $_.FullName.Substring($projectRoot.Length + 1).Replace('\','/')
     })
     $sources += 'tools/firmware/lvgl-host/render.c'
+    $sources += 'firmware/main/device_settings.c'
     $arguments = $common + $sources + @("$build/lvgl.o",'-lm','-o',"$build/render.exe")
     Set-Content "$build/sources.rsp" -Value $arguments -Encoding ASCII
     & $Gcc "@$build/sources.rsp"
     if ($LASTEXITCODE -ne 0) { throw 'LVGL host compilation failed.' }
     $result = & "$build/render.exe" $raw
     if ($LASTEXITCODE -ne 0) { throw 'LVGL host checks failed.' }
+    & $Gcc '-std=c11' '-Wall' '-Wextra' '-Ifirmware/main' 'firmware/main/crt_clock.c' 'tools/firmware/lvgl-host/crt_clock_test.c' '-o' "$build/crt-clock-test.exe"
+    if ($LASTEXITCODE -ne 0) { throw 'CRT clock host compilation failed.' }
+    & "$build/crt-clock-test.exe"
+    if ($LASTEXITCODE -ne 0) { throw 'CRT clock checks failed.' }
+    & $Gcc '-std=c11' '-Wall' '-Wextra' '-Ifirmware/main' 'firmware/main/device_settings.c' 'tools/firmware/lvgl-host/device_settings_test.c' '-o' "$build/device-settings-test.exe"
+    if ($LASTEXITCODE -ne 0) { throw 'Local settings compilation failed.' }
+    & "$build/device-settings-test.exe"
+    if ($LASTEXITCODE -ne 0) { throw 'Local settings persistence checks failed.' }
     [System.IO.File]::WriteAllText((Join-Path $projectRoot "$output/host-checks.json"),
         (($result -join "`n") + "`n"), (New-Object System.Text.UTF8Encoding $false))
     Write-Output $result

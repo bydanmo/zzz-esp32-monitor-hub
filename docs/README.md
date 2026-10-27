@@ -5,6 +5,8 @@
 - [启动、配置、真实数据与只读演示](usage.md)
 - [连接 ESP32、引脚与固件构建](../firmware/README.md)
 - [可选资源下载、自备图片／视频导入](media.md)
+- [学习联动与本地配对](study-link.md)
+- [当前交接与未完成验收](STATUS.md)
 
 ## 开发与设计
 

@@ -17,3 +17,5 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run build
+      - run: python tools/testing/audit-public.py
+      - run: node tools/testing/check-study-bootstrap.mjs

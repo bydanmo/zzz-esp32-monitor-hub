@@ -11,4 +11,5 @@ esp_err_t video_player_start(int64_t now_us);
 esp_err_t video_player_step(int64_t now_us);
 void video_player_stop(void);
 bool video_player_is_active(void);
+void video_player_set_clock(uint32_t seconds, int64_t received_ms, bool valid);
 

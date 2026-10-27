@@ -1,0 +1,66 @@
+{
+  "recordedOn": "2026-10-27",
+  "version": "0.4.0",
+  "scope": "Public source tree; original media; local validation before publication",
+  "checks": {
+    "dependencyInstall": "passed",
+    "typescript": "passed",
+    "nodeTests": {
+      "passed": 79,
+      "failed": 0
+    },
+    "hubAndWebBuild": "passed",
+    "lvglHost": {
+      "checks": 170,
+      "idleFlushPixels": 301340,
+      "clockTickFlushPixels": 10560,
+      "studyMotion4sFlushPixels": 1662125,
+      "systemMotion4sFlushPixels": 1213602,
+      "overviewMotion4sFlushPixels": 1986157,
+      "source": "LVGL 8.4 host renderer; synthetic fixtures"
+    },
+    "cClockRegression": "passed",
+    "cSettingsStorageRegression": "passed",
+    "isolatedStudyBootstrap": {
+      "passed": true,
+      "settingsDirectoryCreated": true,
+      "concurrentSettingsWrites": true,
+      "pairingKeyNotExposed": true,
+      "learningWrites": 0
+    },
+    "firmwareBuild": {
+      "passed": true,
+      "sdk": "ESP-IDF 5.4.1",
+      "lvgl": "8.4.0",
+      "appBytes": 1894496,
+      "appSha256": "94ef2228582cb3dc59b5a069e898de0cacab50a702a9728121e9e09b63355a6c",
+      "binaryDistributed": false
+    },
+    "media": {
+      "passed": true,
+      "animationCrc32": "a611dcf5",
+      "backgroundCrc32": "01615185"
+    },
+    "resourceArchive": {
+      "verified": true,
+      "bytes": 1556069,
+      "sha256": "83c598a0ae8ca5f95f86feed1f8f2db5f602a226b4d6980c7dd46203895e9a37"
+    }
+  },
+  "ci": {
+    "source": "https://github.com/bydanmo/zzz-esp32-monitor-hub/pull/1/checks",
+    "status": "Consult current PR checks; this file records local checks only"
+  },
+  "physicalAcceptance": {
+    "maintainerDevice": [
+      "touch and highlight confirmed",
+      "brightness changes confirmed"
+    ],
+    "pending": [
+      "power-cycle persistence",
+      "public original-media visual acceptance",
+      "new uninterrupted 5+5 minute cycle",
+      "new 24 hour stability observation"
+    ]
+  }
+}

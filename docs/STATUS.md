@@ -1,6 +1,6 @@
 # 当前交接
 
-本页是接手入口，更新于2026-10-27。代码位于开发分支 `codex/project-review-20261025`，通过 [PR #1](https://github.com/bydanmo/zzz-esp32-monitor-hub/pull/1) 审查；不要把分支更新、资源候选包或CI通过当成默认分支已经合并。
+本页是接手入口，更新于2026-10-27。主版本入口为 `main`；维护者已明确授权将本轮0.4.0通过 [PR #1](https://github.com/bydanmo/zzz-esp32-monitor-hub/pull/1) 合并，最终合并结果以该PR和远端为准。合并前的main已固定为标签 `main-before-v0.4.0-20261027`，旧源码和原有提交历史均保留。新旧版本入口及用法见 [版本与历史](versions.md)。
 
 ## 当前实现
 

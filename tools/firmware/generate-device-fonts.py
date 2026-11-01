@@ -81,5 +81,5 @@ with tempfile.TemporaryDirectory(prefix='dm01-font-', dir=work) as temp:
                         '--output', str(output)], check=True)
         generated = output.read_text(encoding='utf-8')
         generated = re.sub(r'^ \* Opts:.*$', ' * Generated Noto derivative; see tools/firmware/generate-device-fonts.py and the OFL notice.', generated, flags=re.MULTILINE)
-        output.write_text(generated, encoding='utf-8')
+        output.write_text(generated.rstrip() + '\n', encoding='utf-8')
         print(f'{output.name}: {output.stat().st_size} bytes')

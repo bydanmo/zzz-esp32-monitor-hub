@@ -131,7 +131,7 @@
     {
       "path": "docs/validation-v0.5.8.json",
       "beforeSha256": null,
-      "afterSha256": "808dffae873c621ac8c4ec2ef2717b508758943afc6d15e28fa7b5af6a01c948",
+      "afterSha256": "0b08aa956a59ea24d2a9cc725f5ce1a2be90075b9523df15c97da8562f36f504",
       "bytes": 1755
     },
     {
@@ -275,8 +275,8 @@
     {
       "path": "firmware/main/ui/ui_font_timer_176.c",
       "beforeSha256": null,
-      "afterSha256": "a98881b010b1ffac7a3e53d899f72f22f6a4de5acd1ca9db78cd4235ec64eaeb",
-      "bytes": 343337
+      "afterSha256": "347f1e8d68a94cb4c966945f0b2a82ad7f633c0865f0106de7640bc1a5177a4b",
+      "bytes": 343336
     },
     {
       "path": "firmware/main/ui/ui_shell.c",
@@ -335,8 +335,8 @@
     {
       "path": "tools/firmware/generate-device-fonts.py",
       "beforeSha256": "d9c268b5fae71530ada7bc6f3fb169cffc54adaa8d9a9eb27d8d3b6ffde9a54a",
-      "afterSha256": "d4f1bcb80e9fc81e2e36601b7b7a179216b86d4cdb8e1aec7fcee69fb836e973",
-      "bytes": 4290
+      "afterSha256": "5df4e161240f32c552fb4f974f4c8b6f2a5fcd3eb1170449d72d167cdd020cf9",
+      "bytes": 4306
     },
     {
       "path": "tools/firmware/lvgl-host/animation_preferences_test.c",

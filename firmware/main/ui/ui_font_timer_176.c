@@ -7190,4 +7190,3 @@ lv_font_t ui_font_timer_176 = {
 
 
 #endif /*#if UI_FONT_TIMER_176*/
-

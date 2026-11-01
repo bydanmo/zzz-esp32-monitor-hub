@@ -31,6 +31,7 @@ try {
     })
     $sources += 'tools/firmware/lvgl-host/render.c'
     $sources += 'firmware/main/device_settings.c'
+    $sources += 'firmware/main/animation_preferences.c'
     $arguments = $common + $sources + @("$build/lvgl.o",'-lm','-o',"$build/render.exe")
     Set-Content "$build/sources.rsp" -Value $arguments -Encoding ASCII
     & $Gcc "@$build/sources.rsp"
@@ -45,6 +46,14 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Local settings compilation failed.' }
     & "$build/device-settings-test.exe"
     if ($LASTEXITCODE -ne 0) { throw 'Local settings persistence checks failed.' }
+    & $Gcc '-std=c11' '-Wall' '-Wextra' '-Ifirmware/main' 'firmware/main/animation_preferences.c' 'firmware/main/media_catalog.c' 'tools/firmware/lvgl-host/animation_preferences_test.c' '-o' "$build/animation-preferences-test.exe"
+    if ($LASTEXITCODE -ne 0) { throw 'Animation preference compilation failed.' }
+    & "$build/animation-preferences-test.exe"
+    if ($LASTEXITCODE -ne 0) { throw 'Animation preference/catalog checks failed.' }
+    & $Gcc @common 'tools/firmware/lvgl-host/display_pipeline_test.c' "$build/lvgl.o" '-lm' '-o' "$build/display-pipeline-test.exe"
+    if ($LASTEXITCODE -ne 0) { throw 'Display pipeline compilation failed.' }
+    & "$build/display-pipeline-test.exe"
+    if ($LASTEXITCODE -ne 0) { throw 'Display buffer lifetime/frame checks failed.' }
     [System.IO.File]::WriteAllText((Join-Path $projectRoot "$output/host-checks.json"),
         (($result -join "`n") + "`n"), (New-Object System.Text.UTF8Encoding $false))
     Write-Output $result

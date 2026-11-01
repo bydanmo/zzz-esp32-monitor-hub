@@ -49,3 +49,4 @@ bool network_client_poll(monitor_telemetry_t *telemetry);
 void network_client_ack_config_applied(uint32_t revision);
 void network_client_study_page(uint16_t page);
 bool network_client_study_action(const char *action, uint32_t task_id, const char *batch);
+bool network_client_study_action_timed(const char *action, uint32_t task_id, const char *batch, unsigned minutes);

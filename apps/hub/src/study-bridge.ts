@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { StudyController, type StudyAction, type StudyActionResult, type StudyWrite } from "./study-control.js";
+import { StudyController, validStudyDuration, type StudyAction, type StudyActionResult, type StudyWrite } from "./study-control.js";
 
 export type StudySocket = { readyState: number; send(data: string): void };
 type Task = { id: number; title: string; done: boolean | number; minutes: number };
@@ -92,11 +92,11 @@ export class StudyBridge {
   remove(socket: StudySocket) { this.clients.delete(socket); this.sent.delete(socket); this.receipts.delete(socket); this.controllers.delete(socket); this.contexts.delete(socket); this.commands.delete(socket); }
   handleMessage(socket: StudySocket, raw: string): boolean {
     if (!this.enabled || !this.clients.has(socket) || Buffer.byteLength(raw, "utf8") >= 512) return false;
-    let v: { type?: string; page?: number; batch?: string; version?: number; id?: string; action?: string; taskId?: number };
+    let v: { type?: string; page?: number; batch?: string; version?: number; id?: string; action?: string; taskId?: number; durationSeconds?: unknown };
     try { v = JSON.parse(raw); } catch { return false; }
     if (v?.type === "studyAction") {
       if (v.version !== 1 || typeof v.id !== "string" || !/^[A-Za-z0-9_-]{1,48}$/.test(v.id) ||
-          !["start", "pause", "resume", "end", "done"].includes(v.action ?? "") ||
+          !["start", "pause", "resume", "end", "done"].includes(v.action ?? "") || !validStudyDuration(v.action,v.durationSeconds) ||
           ((v.action === "start" || v.action === "done") && (!Number.isSafeInteger(v.taskId) || v.taskId! < 0))) return false;
       const command = v as StudyAction;
       const reply = (r: StudyActionResult) => { if (socket.readyState === 1) { try { socket.send(JSON.stringify(r)); } catch { this.remove(socket); } } };

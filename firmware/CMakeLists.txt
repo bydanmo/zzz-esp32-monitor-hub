@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
+option(MONITOR_DISPLAY_BENCHMARK "Run startup-only same-scene display A/B measurements" OFF)
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-set(PROJECT_VER "0.4.0")
+set(PROJECT_VER "0.5.8")
 project(esp32_monitor)

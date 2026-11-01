@@ -1,0 +1,64 @@
+{
+  "recordedAt": "2026-11-01T05:13:35.233711+00:00",
+  "version": "0.5.8",
+  "typeCheck": true,
+  "nodeTests": {
+    "pass": 89,
+    "fail": 0
+  },
+  "productionBuild": true,
+  "isolatedColdStart": {
+    "passed": true,
+    "realLearningWrites": 0
+  },
+  "lvglHost": {
+    "checks": 236,
+    "idleFlushPixels": 301340,
+    "clockTickFlushPixels": 10560,
+    "studyMotion4sFlushPixels": 1662125,
+    "systemMotion4sFlushPixels": 1213602,
+    "overviewMotion4sFlushPixels": 1986157,
+    "source": "LVGL 8.4 host renderer; synthetic fixtures"
+  },
+  "displayDma": {
+    "byteIdenticalPairs": 40,
+    "delayedCompletions": 452,
+    "overlapWaits": 226
+  },
+  "catalogDecoder": true,
+  "realAnimationConversion": {
+    "realFFmpegConversion": true,
+    "originalMediaOnly": true,
+    "frames": 15,
+    "bytes": 891000,
+    "previewAndPoster": true,
+    "isolatedTemporaryDirectory": true,
+    "realDataWrites": 0
+  },
+  "firmware": {
+    "sdk": "ESP-IDF 5.4.1",
+    "lvgl": "8.4.0",
+    "bytes": 2013760,
+    "sha256": "946830ea4b5cdcff9822359eb50ffc14fc9ccf941ac1ba74fcb9ccb2d3c76282",
+    "startupBenchmarkEnabled": false,
+    "binaryDistributed": false
+  },
+  "maintenanceHardware": {
+    "medianSingleMs": 214.901,
+    "medianDoubleMs": 134.86,
+    "durationReductionPercent": 37.24552235680616,
+    "fullMotionColorsTouchAccepted": true,
+    "publicOriginalMediaPhysicallyAccepted": false
+  },
+  "unverified": [
+    "CRT physical preview/clock/return on 0.5.8",
+    "fresh unattended 5+5 cycle",
+    "power-cycle preferences",
+    "24-hour endurance"
+  ],
+  "remoteCI": "See GitHub Actions for the actual published commit; local checks do not predeclare remote success.",
+  "publicAudit": {
+    "issues": 0,
+    "privateOrGameMediaIncluded": false
+  }
+}

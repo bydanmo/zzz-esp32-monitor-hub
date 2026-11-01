@@ -4,6 +4,9 @@ import { fileURLToPath } from "node:url";
 import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
+import { AnimationLibrary } from "./animation-library.js";
+import { convertAnimation } from "./animation-converter.js";
+import { registerAnimationRoutes } from "./animation-routes.js";
 import { DeviceSessionRegistry } from "./device-sessions.js";
 import { StudyBridge } from "./study-bridge.js";
 import { pairedStudyHello } from "./study-pairing.js";
@@ -72,6 +75,9 @@ function broadcastDeviceState(snapshot = collectSnapshot(examTarget, providerMan
   return { pushedDevices, pushedSockets };
 }
 
+const animationLibrary = new AnimationLibrary(path.resolve(directory, "../data/animations"), path.resolve(directory, "../../web/public"), convertAnimation);
+await animationLibrary.init();
+await registerAnimationRoutes(app, animationLibrary);
 await app.register(websocket);
 await app.register(fastifyStatic, { root: webRoot, prefix: "/" });
 

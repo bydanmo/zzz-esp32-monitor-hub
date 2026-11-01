@@ -362,8 +362,15 @@ void network_client_study_page(uint16_t page)
 
 bool network_client_study_action(const char *action, uint32_t task_id, const char *batch)
 {
+    return network_client_study_action_timed(action,task_id,batch,25);
+}
+bool network_client_study_action_timed(const char *action, uint32_t task_id, const char *batch, unsigned minutes)
+{
     if (!action || !batch || strlen(batch)>=40 ||
         (strcmp(action,"start") && strcmp(action,"pause") && strcmp(action,"resume") && strcmp(action,"end") && strcmp(action,"done"))) return false;
+    if(strcmp(action,"start")==0 && (minutes<1 || minutes>120))return false;
+    char duration[40]="";
+    if(strcmp(action,"start")==0)snprintf(duration,sizeof(duration),",\"durationSeconds\":%u",minutes*60);
     uint32_t nonce=esp_random();
     int64_t now=esp_timer_get_time()/1000;
     portENTER_CRITICAL(&state_lock);
@@ -373,8 +380,8 @@ bool network_client_study_action(const char *action, uint32_t task_id, const cha
     }
     snprintf(study_action_id,sizeof(study_action_id),"s-%08lx-%lu",(unsigned long)nonce,(unsigned long)++study_action_sequence);
     snprintf(study_action_json,sizeof(study_action_json),
-        "{\"type\":\"studyAction\",\"version\":1,\"id\":\"%s\",\"batch\":\"%s\",\"action\":\"%s\",\"taskId\":%lu}",
-        study_action_id,batch,action,(unsigned long)task_id);
+        "{\"type\":\"studyAction\",\"version\":1,\"id\":\"%s\",\"batch\":\"%s\",\"action\":\"%s\",\"taskId\":%lu%s}",
+        study_action_id,batch,action,(unsigned long)task_id,duration);
     state.study_action=STUDY_ACTION_PENDING; study_action_started_ms=now; state_version++;
     portEXIT_CRITICAL(&state_lock);
     return true;

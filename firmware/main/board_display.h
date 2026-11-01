@@ -19,6 +19,8 @@ esp_err_t board_display_wait(void);
 esp_err_t board_display_write_rgb565be(int y, int line_count,
                                       const uint8_t *pixels, size_t byte_count);
 typedef void (*board_display_flush_done_cb_t)(void *context);
-void board_display_flush(int x1, int y1, int x2, int y2, const uint16_t *pixels,
+/* Writable native RGB565 draw buffer. Converted in place and borrowed until
+ * done_cb; callers may not draw into it or free it before completion. */
+void board_display_flush(int x1, int y1, int x2, int y2, uint16_t *pixels,
                          size_t pixel_count, board_display_flush_done_cb_t done_cb,
                          void *context);

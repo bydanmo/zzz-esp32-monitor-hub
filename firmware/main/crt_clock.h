@@ -10,4 +10,6 @@
 /* The existing Hub deviceTime is UTC ISO8601; this display uses UTC+8. */
 bool crt_clock_parse(const char *iso, uint32_t *seconds);
 uint32_t crt_clock_seconds(uint32_t anchor, int64_t received_ms, int64_t now_ms);
+/* Prepare the immutable room's glass once at playback start, off the frame path. */
+bool crt_clock_prepare(const uint8_t *background);
 void crt_clock_render(uint8_t *pixels, const uint8_t *background, uint32_t seconds, bool valid);

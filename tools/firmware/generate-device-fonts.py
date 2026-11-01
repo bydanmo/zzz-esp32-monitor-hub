@@ -18,7 +18,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--font', default='C:/Windows/Fonts/NotoSansSC-VF.ttf')
 parser.add_argument('--converter', required=True, help='Path to lv_font_conv.js')
 parser.add_argument('--only', choices=['ui_font_zh_16', 'ui_font_numeric_28', 'ui_font_numeric_40',
-                                     'ui_font_numeric_56', 'ui_font_poster_84', 'ui_font_poster_112'],
+                                     'ui_font_numeric_56', 'ui_font_poster_84', 'ui_font_poster_112', 'ui_font_timer_176'],
                     help='Regenerate one device face without changing the web font')
 args = parser.parse_args()
 header = (ROOT / 'firmware/main/ui/ui_text_zh.h').read_text(encoding='utf-8')
@@ -40,7 +40,7 @@ with tempfile.TemporaryDirectory(prefix='dm01-font-', dir=work) as temp:
             record.string = 'DM01DeviceBlack'.encode(record.getEncoding())
     source = Path(temp) / 'DM01DeviceBlack.ttf'
     font.save(source)
-    poster_chars = '0123456789%+-ABCDEFGHIJKLMNOPQRSTUVWXYZ /'
+    poster_chars = '0123456789%+-ABCDEFGHIJKLMNOPQRSTUVWXYZ /:'
     poster = copy.deepcopy(font)
     poster_subset = Subsetter(options=options)
     poster_subset.populate(text=poster_chars)
@@ -69,6 +69,7 @@ with tempfile.TemporaryDirectory(prefix='dm01-font-', dir=work) as temp:
         (56, 'ui_font_numeric_56', '0123456789%+-'),
         (84, 'ui_font_poster_84', poster_chars),
         (112, 'ui_font_poster_112', '0123456789+-'),
+        (176, 'ui_font_timer_176', '0123456789:-'),
     ]:
         if args.only and args.only != name:
             continue
@@ -78,4 +79,7 @@ with tempfile.TemporaryDirectory(prefix='dm01-font-', dir=work) as temp:
                         '--format', 'lvgl', '--lv-font-name', name,
                         '--lv-include', 'lvgl.h', '--no-compress', '--no-kerning',
                         '--output', str(output)], check=True)
+        generated = output.read_text(encoding='utf-8')
+        generated = re.sub(r'^ \* Opts:.*$', ' * Generated Noto derivative; see tools/firmware/generate-device-fonts.py and the OFL notice.', generated, flags=re.MULTILINE)
+        output.write_text(generated, encoding='utf-8')
         print(f'{output.name}: {output.stat().st_size} bytes')

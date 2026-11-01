@@ -2,6 +2,8 @@ import os from "node:os";
 import si from "systeminformation";
 import type { Metric } from "../types.js";
 import type { MetricProvider } from "./provider.js";
+import type { SystemSource } from "./system-source.js";
+import { WindowsNativeSource } from "./windows-native-source.js";
 
 function finite(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
@@ -13,18 +15,22 @@ function metric(id: string, title: string, value: number | string | null, unit: 
 }
 
 export class SystemProvider implements MetricProvider {
-  readonly id = "systeminformation";
-  readonly label = "本机系统信息";
+  readonly id = process.platform === "win32" ? "windows-native" : "systeminformation";
+  readonly label = process.platform === "win32" ? "本机系统信息（Windows 原生）" : "本机系统信息";
   readonly refreshIntervalMs: number;
 
-  constructor(refreshIntervalMs = 2000) {
-    this.refreshIntervalMs = refreshIntervalMs;
+  constructor(refreshIntervalMs = 2000, private readonly source: SystemSource =
+    process.platform === "win32" ? new WindowsNativeSource() : si) {
+    this.refreshIntervalMs = Number.isFinite(refreshIntervalMs) && refreshIntervalMs >= 2000
+      ? refreshIntervalMs : 2000;
   }
 
   async collect(signal: AbortSignal): Promise<Metric[]> {
+    if (signal.aborted) throw new Error("PROVIDER_TIMEOUT");
     const now = new Date().toISOString();
     const [load, memory, temperature, graphics, filesystems, networks] = await Promise.allSettled([
-      si.currentLoad(), si.mem(), si.cpuTemperature(), si.graphics(), si.fsSize(), si.networkStats()
+      this.source.currentLoad(), this.source.mem(), this.source.cpuTemperature(),
+      this.source.graphics(), this.source.fsSize(), this.source.networkStats()
     ]);
     if (signal.aborted) throw new Error("PROVIDER_TIMEOUT");
 
@@ -65,8 +71,8 @@ export class SystemProvider implements MetricProvider {
 
     const interfaces = networks.status === "fulfilled" ? networks.value : [];
     const network = interfaces.find((item) => item.operstate === "up" && item.iface.toLowerCase() !== "lo") ?? interfaces[0];
-    const download = network && finite(network.rx_sec) ? network.rx_sec : null;
-    const upload = network && finite(network.tx_sec) ? network.tx_sec : null;
+    const download = network && finite(network.rx_sec) && network.rx_sec >= 0 ? network.rx_sec : null;
+    const upload = network && finite(network.tx_sec) && network.tx_sec >= 0 ? network.tx_sec : null;
     const networkAvailability = network && (download === null || upload === null) ? "waiting" : network ? "available" : "unavailable";
     metrics.push(metric("system.network.download", "下载速率", download, "B/s", now, networkAvailability));
     metrics.push(metric("system.network.upload", "上传速率", upload, "B/s", now, networkAvailability));

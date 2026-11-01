@@ -1,7 +1,10 @@
 idf_component_register(SRCS "main.c" "board_config.c" "board_display.c" "board_touch.c" "dashboard.c" "lvgl_port.c" "network_client.c" "study_projection.c" "config_delivery.c" "video_player.c" "media_assets.c" "crt_clock.c"
-                            "device_settings.c" "device_settings_nvs.c"
+                            "device_settings.c" "device_settings_nvs.c" "animation_preferences.c" "media_catalog.c" "media_catalog_json.c"
                             "ui/ui_model.c" "ui/ui_router.c" "ui/ui_motion.c" "ui/ui_shell.c" "ui/ui_font_zh_16.c" "ui/ui_font_study_16.c"
                             "ui/ui_font_numeric_28.c" "ui/ui_font_numeric_40.c" "ui/ui_font_numeric_56.c"
-                            "ui/ui_font_poster_84.c" "ui/ui_font_poster_112.c" "ui/ui_art.c"
+                            "ui/ui_font_poster_84.c" "ui/ui_font_poster_112.c" "ui/ui_font_timer_176.c" "ui/ui_art.c"
                        INCLUDE_DIRS "." "ui"
                        REQUIRES driver esp_app_format esp_lcd lvgl esp_wifi esp_event esp_netif esp_websocket_client esp_http_client json nvs_flash fatfs)
+if(MONITOR_DISPLAY_BENCHMARK)
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE MONITOR_DISPLAY_BENCHMARK=1)
+endif()

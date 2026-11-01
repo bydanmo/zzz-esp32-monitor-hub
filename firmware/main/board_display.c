@@ -1,17 +1,21 @@
 #include "board_display.h"
 
 #include <assert.h>
+#include <stdlib.h>
 #include "driver/gpio.h"
 #include "driver/ledc.h"
 #include "driver/spi_master.h"
 #include "esp_check.h"
 #include "esp_lcd_panel_io.h"
 #include "esp_log.h"
+#include "esp_heap_caps.h"
+#include "esp_memory_utils.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 
 #include "board_config.h"
+#include "display_pixels.h"
 
 #define LCD_HOST SPI2_HOST
 #define LCD_PIXEL_CLOCK_HZ (40 * 1000 * 1000)
@@ -19,7 +23,6 @@
 
 static const char *TAG = "board-display";
 static esp_lcd_panel_io_handle_t lcd_io;
-static uint16_t flush_buffer[BOARD_LCD_WIDTH * LCD_DRAW_LINES];
 static board_display_flush_done_cb_t flush_done_cb;
 static void *flush_done_context;
 static SemaphoreHandle_t transfer_done;
@@ -35,16 +38,17 @@ static bool on_color_trans_done(esp_lcd_panel_io_handle_t io,
     (void)event_data;
     (void)user_context;
     BaseType_t task_woken = pdFALSE;
-    transfer_in_progress = false;
-    if (transfer_done != NULL) {
-        xSemaphoreGiveFromISR(transfer_done, &task_woken);
-    }
     if (flush_done_cb != NULL) {
         board_display_flush_done_cb_t callback = flush_done_cb;
         void *context = flush_done_context;
         flush_done_cb = NULL;
         flush_done_context = NULL;
         callback(context);
+    }
+    /* Publish completion only after handing the draw buffer back to LVGL. */
+    transfer_in_progress = false;
+    if (transfer_done != NULL) {
+        xSemaphoreGiveFromISR(transfer_done, &task_woken);
     }
     return task_woken == pdTRUE;
 }
@@ -232,17 +236,16 @@ esp_err_t board_display_queue_rect_rgb565be(int x, int y, int width, int line_co
     return ESP_OK;
 }
 
-void board_display_flush(int x1, int y1, int x2, int y2, const uint16_t *pixels,
+void board_display_flush(int x1, int y1, int x2, int y2, uint16_t *pixels,
                          size_t pixel_count, board_display_flush_done_cb_t done_cb,
                          void *context)
 {
     const size_t max_pixels = BOARD_LCD_WIDTH * LCD_DRAW_LINES;
     assert(x1 >= 0 && y1 >= 0 && x2 < BOARD_LCD_WIDTH && y2 < BOARD_LCD_HEIGHT);
     assert(pixel_count <= max_pixels);
-
-    for (size_t index = 0; index < pixel_count; index += 1) {
-        flush_buffer[index] = __builtin_bswap16(pixels[index]);
-    }
+    assert(esp_ptr_dma_capable(pixels));
+    ESP_ERROR_CHECK(board_display_wait());
+    display_pixels_rgb565be(pixels,pixel_count);
 
     const uint8_t column[] = { (uint8_t)(x1 >> 8), (uint8_t)x1,
                                (uint8_t)(x2 >> 8), (uint8_t)x2 };
@@ -254,19 +257,24 @@ void board_display_flush(int x1, int y1, int x2, int y2, const uint16_t *pixels,
     flush_done_context = context;
     xSemaphoreTake(transfer_done, 0);
     transfer_in_progress = true;
-    ESP_ERROR_CHECK(esp_lcd_panel_io_tx_color(lcd_io, 0x2C, flush_buffer,
+    ESP_ERROR_CHECK(esp_lcd_panel_io_tx_color(lcd_io, 0x2C, pixels,
                                                pixel_count * sizeof(uint16_t)));
 }
 
 void board_display_fill(uint16_t color)
 {
-    static uint16_t lines[BOARD_LCD_WIDTH * LCD_DRAW_LINES];
-    for (size_t index = 0; index < BOARD_LCD_WIDTH * LCD_DRAW_LINES; index += 1) {
+    const int clear_lines=8;
+    const size_t bytes=BOARD_LCD_WIDTH*clear_lines*sizeof(uint16_t);
+    uint16_t *lines=heap_caps_malloc(bytes,MALLOC_CAP_DMA|MALLOC_CAP_INTERNAL);
+    assert(lines!=NULL);
+    for (size_t index = 0; index < BOARD_LCD_WIDTH * clear_lines; index += 1) {
         lines[index] = __builtin_bswap16(color);
     }
-    for (int y = 0; y < BOARD_LCD_HEIGHT; y += LCD_DRAW_LINES) {
-        ESP_ERROR_CHECK(board_display_write_rgb565be(y, LCD_DRAW_LINES,
+    for (int y = 0; y < BOARD_LCD_HEIGHT; y += clear_lines) {
+        int count=BOARD_LCD_HEIGHT-y;if(count>clear_lines)count=clear_lines;
+        ESP_ERROR_CHECK(board_display_write_rgb565be(y, count,
                                                      (const uint8_t *)lines,
-                                                     sizeof(lines)));
+                                                     BOARD_LCD_WIDTH*count*sizeof(uint16_t)));
     }
+    free(lines);
 }

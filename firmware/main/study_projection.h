@@ -4,6 +4,12 @@
 typedef struct cJSON cJSON;
 
 typedef enum { STUDY_IDLE, STUDY_RUNNING, STUDY_PAUSED, STUDY_READY } study_status_t;
+
+/* Display policy only: paused sessions remain paused on the authoritative PC. */
+static inline bool study_status_blocks_media(study_status_t status)
+{
+    return status==STUDY_RUNNING||status==STUDY_READY;
+}
 typedef struct { uint32_t id; bool done; uint32_t minutes; char title[257]; } study_task_t;
 typedef struct {
     bool available;

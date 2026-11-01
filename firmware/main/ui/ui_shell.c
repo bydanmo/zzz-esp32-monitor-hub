@@ -13,6 +13,8 @@
 #include "ui_tokens.generated.h"
 #include "ui_art.h"
 #include "device_settings.h"
+#include "animation_preferences.h"
+#include "media_assets.h"
 
 LV_FONT_DECLARE(ui_font_zh_16);
 LV_FONT_DECLARE(ui_font_study_16);
@@ -21,6 +23,7 @@ LV_FONT_DECLARE(ui_font_numeric_40);
 LV_FONT_DECLARE(ui_font_numeric_56);
 LV_FONT_DECLARE(ui_font_poster_84);
 LV_FONT_DECLARE(ui_font_poster_112);
+LV_FONT_DECLARE(ui_font_timer_176);
 
 #define FONT_LABEL (&ui_font_zh_16)
 #define FONT_TAG (&lv_font_montserrat_14)
@@ -90,6 +93,16 @@ static lv_obj_t *nav_labels[MONITOR_PAGE_COUNT];
 static lv_obj_t *nav_indicators[MONITOR_PAGE_COUNT];
 static lv_obj_t *settings_slider, *settings_value, *settings_status, *settings_retry;
 static bool settings_save_failed;
+static bool animation_settings_open;
+static media_library_snapshot_t animation_view;
+static media_library_snapshot_t animation_last_view;
+static bool animation_dirty=true,animation_last_focus;
+static char animation_browse_id[17];
+static animation_mode_t animation_browse_mode;
+static unsigned animation_page;
+static const char *animation_notice;
+static lv_obj_t *animation_rows[3],*animation_row_labels[3],*animation_status_label,*animation_mode_label;
+static lv_obj_t *animation_page_label,*animation_previous,*animation_next,*animation_preview,*animation_apply;
 static lv_font_t font_countdown;
 static lv_font_t font_countdown_compact;
 static lv_obj_t *countdown_value;
@@ -103,6 +116,10 @@ static lv_obj_t *study_rows[3], *study_page_label, *study_prev, *study_next, *st
 static lv_obj_t *study_row_buttons[3], *study_checks[3], *study_check_labels[3];
 static lv_obj_t *study_action_button, *study_action_label, *study_confirm;
 static lv_obj_t *study_end_button;
+static lv_obj_t *study_duration_button,*study_duration_label,*minute_dialog,*minute_value;
+static unsigned study_minutes=25,minute_draft;
+static bool focus_minimized;
+static lv_obj_t *focus_layer,*focus_time,*focus_title,*focus_status,*focus_pause,*focus_pause_label,*focus_end;
 static uint32_t study_selected_id = UINT32_MAX, study_confirm_id;
 static bool study_local_pending;
 static metric_view_t cpu_view;
@@ -134,6 +151,7 @@ static monitor_display_config_t active_config = {
 static void rebuild_content(void);
 static void update_dynamic_content(void);
 static void update_study_projection(void);
+static void update_focus_timer(void);
 
 static lv_color_t ticket_ink(void)
 {
@@ -635,11 +653,140 @@ static void settings_toggle_event(lv_event_t *event)
     }
 }
 
+static void animation_update(void)
+{
+    if(!animation_settings_open||!animation_status_label)return;
+    media_assets_snapshot(&animation_view);
+    bool focus=has_model&&latest_model.study.available&&study_status_blocks_media(latest_model.study.status);
+    if(!animation_dirty && animation_last_focus==focus && memcmp(&animation_view,&animation_last_view,sizeof(animation_view))==0)return;
+    animation_dirty=false;animation_last_focus=focus;animation_last_view=animation_view;
+    unsigned pages=(animation_view.count+2)/3;if(!pages)pages=1;
+    if(animation_page>=pages)animation_page=pages-1;
+    const animation_preferences_t *saved=animation_preferences_get();
+    bool browsed=false;
+    for(unsigned i=0;i<animation_view.count;i++) if(strcmp(animation_view.entries[i].id,animation_browse_id)==0)browsed=true;
+    if(!browsed&&animation_view.count)memcpy(animation_browse_id,animation_view.entries[0].id,17);
+    for(unsigned row=0;row<3;row++) {
+        unsigned index=animation_page*3+row;
+        if(index>=animation_view.count){lv_obj_add_flag(animation_rows[row],LV_OBJ_FLAG_HIDDEN);continue;}
+        lv_obj_clear_flag(animation_rows[row],LV_OBJ_FLAG_HIDDEN);
+        bool chosen=strcmp(animation_view.entries[index].id,animation_browse_id)==0;
+        bool fixed_choice=chosen&&animation_browse_mode==ANIMATION_SINGLE;
+        lv_obj_set_style_bg_color(animation_rows[row],lv_color_hex(fixed_choice?active_config.data_text_color:active_config.card_color),0);
+        lv_obj_set_style_text_color(animation_rows[row],fixed_choice?ticket_ink():lv_color_hex(UI_COLOR_TEXT_PRIMARY),0);
+        lv_obj_set_style_border_width(animation_rows[row],chosen?2:1,0);
+        lv_obj_set_style_border_color(animation_rows[row],lv_color_hex(chosen?0x050506:UI_COLOR_TEXT_SECONDARY),0);
+        lv_label_set_text_fmt(animation_row_labels[row],"%02u  %s%s%s",index+1,animation_view.entries[index].label,
+            animation_view.entries[index].cached?"  [TF]":"  [..]",
+            saved->mode==ANIMATION_SINGLE&&strcmp(saved->id,animation_view.entries[index].id)==0?"  *":"");
+    }
+    lv_label_set_text(animation_mode_label,animation_browse_mode==ANIMATION_SEQUENCE?"队列轮播":"固定单段");
+    lv_label_set_text_fmt(animation_page_label,"%u / %u",animation_page+1,pages);
+    if(animation_page==0)lv_obj_add_state(animation_previous,LV_STATE_DISABLED);else lv_obj_clear_state(animation_previous,LV_STATE_DISABLED);
+    if(animation_page+1>=pages)lv_obj_add_state(animation_next,LV_STATE_DISABLED);else lv_obj_clear_state(animation_next,LV_STATE_DISABLED);
+    bool has_choice=animation_view.count&&animation_id_valid(animation_browse_id);
+    if(has_choice&&animation_view.storage&&!focus)lv_obj_clear_state(animation_preview,LV_STATE_DISABLED);else lv_obj_add_state(animation_preview,LV_STATE_DISABLED);
+    /* Saving a playback plan never waits for a download or a preview. */
+    if(has_choice)lv_obj_clear_state(animation_apply,LV_STATE_DISABLED);else lv_obj_add_state(animation_apply,LV_STATE_DISABLED);
+    if(!animation_view.storage)lv_label_set_text(animation_status_label,"可保存设置，插入TF卡后重启播放");
+    else if(animation_view.prefetching) {
+        if(animation_view.status==MEDIA_CHECKING)lv_label_set_text_fmt(animation_status_label,"后台校验TF缓存 %u/%u",animation_view.cached_count,animation_view.count);
+        else lv_label_set_text_fmt(animation_status_label,"后台缓存 %s %u%%",animation_view.transfer_label,animation_view.total?(unsigned)((uint64_t)animation_view.received*100/animation_view.total):0);
+    }
+    else if(animation_view.status==MEDIA_DOWNLOADING)lv_label_set_text_fmt(animation_status_label,"下载到TF %u%%",animation_view.total?(unsigned)((uint64_t)animation_view.received*100/animation_view.total):0);
+    else if(animation_view.status==MEDIA_LOADING)lv_label_set_text(animation_status_label,"从TF载入（不下载）");
+    else if(animation_view.busy)lv_label_set_text(animation_status_label,"后台准备中，可直接保存屏保");
+    else if(animation_view.status==MEDIA_FAILED)lv_label_set_text(animation_status_label,animation_view.online?"后台准备失败，播放设置仍可保存":"离线，可保存设置，联网后自动准备");
+    else if(focus)lv_label_set_text(animation_status_label,"学习计时中，预览暂不可用");
+    else if(animation_notice)lv_label_set_text(animation_status_label,animation_notice);
+    else if(animation_view.prefetch_error)lv_label_set_text(animation_status_label,"后台缓存稍后重试，现有屏保可用");
+    else if(!device_settings_get()->screensaver)lv_label_set_text(animation_status_label,"自动屏保已关闭，请在设置页开启");
+    else if(animation_view.cached_count<animation_view.count)lv_label_set_text_fmt(animation_status_label,"TF缓存 %u/%u，后台自动同步",animation_view.cached_count,animation_view.count);
+    else if(animation_browse_mode==ANIMATION_SEQUENCE)lv_label_set_text_fmt(animation_status_label,"队列 %u 段，每次循环一段 / 5分钟",animation_view.count);
+    else lv_label_set_text(animation_status_label,"固定一段循环 / 预览可选 / 5分钟屏保");
+}
+static void animation_refresh(void) { animation_dirty=true;animation_update(); }
+static void animation_open_event(lv_event_t *event)
+{
+    (void)event;const animation_preferences_t *saved=animation_preferences_get();
+    memcpy(animation_browse_id,saved->id,17);animation_browse_mode=saved->mode;animation_page=0;
+    animation_notice=NULL;animation_settings_open=true;rebuild_content();
+}
+static void animation_back_event(lv_event_t *event)
+{
+    (void)event;media_assets_cancel_preview();animation_settings_open=false;rebuild_content();
+}
+static void animation_mode_event(lv_event_t *event)
+{
+    (void)event;animation_browse_mode=animation_browse_mode==ANIMATION_SEQUENCE?ANIMATION_SINGLE:ANIMATION_SEQUENCE;
+    animation_notice="模式待保存，请点保存";animation_refresh();
+}
+static void animation_row_event(lv_event_t *event)
+{
+    unsigned row=(unsigned)(uintptr_t)lv_event_get_user_data(event);unsigned index=animation_page*3+row;
+    media_assets_snapshot(&animation_view);if(index>=animation_view.count)return;
+    memcpy(animation_browse_id,animation_view.entries[index].id,17);animation_notice=NULL;
+    animation_refresh();
+}
+static void animation_page_event(lv_event_t *event)
+{
+    int delta=(int)(intptr_t)lv_event_get_user_data(event);
+    if(delta<0&&animation_page>0)--animation_page;else if(delta>0)++animation_page;
+    animation_refresh();
+}
+static void animation_preview_event(lv_event_t *event)
+{
+    (void)event;if(media_assets_request(animation_browse_id,true))animation_notice="预览8秒，触摸画面返回设置";
+    animation_refresh();
+}
+static void animation_apply_event(lv_event_t *event)
+{
+    (void)event;
+    const char *id=animation_browse_mode==ANIMATION_SEQUENCE&&animation_view.count?animation_view.entries[0].id:animation_browse_id;
+    if(animation_preferences_select(id,animation_browse_mode)) {
+        animation_notice="已保存，5分钟无操作后自动播放";
+        media_assets_request(id,false);
+    } else animation_notice="保存失败，请再次保存";
+    animation_refresh();
+}
+static lv_obj_t *animation_button(lv_obj_t *card,const char *text,int x,int y,int width,lv_event_cb_t callback,void *data)
+{
+    lv_obj_t *button=make_control_button(card,x,y,width,30);
+    lv_obj_add_event_cb(button,callback,LV_EVENT_CLICKED,data);
+    lv_obj_t *label=lv_label_create(button);lv_label_set_text(label,text);lv_obj_center(label);
+    return button;
+}
+static void build_animation_settings(void)
+{
+    lv_obj_t *card=make_card(0,0,UI_LAYOUT_CONTENT.width,UI_LAYOUT_CONTENT.height);
+    animation_button(card,"返回",18,8,64,animation_back_event,NULL);
+    make_label(card,"屏保播放",100,14,&ui_font_study_16,lv_color_hex(UI_COLOR_TEXT_PRIMARY));
+    lv_obj_t *mode=animation_button(card,"",292,8,146,animation_mode_event,NULL);
+    animation_mode_label=lv_obj_get_child(mode,0);
+    animation_status_label=make_label(card,"",18,47,&ui_font_study_16,lv_color_hex(UI_COLOR_TEXT_SECONDARY));
+    lv_obj_set_width(animation_status_label,420);lv_label_set_long_mode(animation_status_label,LV_LABEL_LONG_DOT);
+    for(unsigned row=0;row<3;row++) {
+        animation_rows[row]=animation_button(card,"",18,72+(int)row*39,420,animation_row_event,(void *)(uintptr_t)row);
+        lv_obj_set_height(animation_rows[row],33);
+        animation_row_labels[row]=lv_obj_get_child(animation_rows[row],0);
+        lv_obj_set_width(animation_row_labels[row],392);lv_label_set_long_mode(animation_row_labels[row],LV_LABEL_LONG_DOT);
+        lv_obj_center(animation_row_labels[row]);
+    }
+    animation_previous=animation_button(card,"<",18,196,40,animation_page_event,(void *)(intptr_t)-1);
+    animation_next=animation_button(card,">",66,196,40,animation_page_event,(void *)(intptr_t)1);
+    animation_page_label=make_label(card,"",122,202,FONT_TAG,lv_color_hex(UI_COLOR_TEXT_SECONDARY));
+    animation_preview=animation_button(card,"预览",208,196,98,animation_preview_event,NULL);
+    animation_apply=animation_button(card,"保存",322,196,116,animation_apply_event,NULL);
+    animation_refresh();
+}
+
 static void build_settings_page(void)
 {
+    if(animation_settings_open){build_animation_settings();return;}
     const device_settings_t *local=device_settings_get();
     lv_obj_t *card=make_card(0,0,UI_LAYOUT_CONTENT.width,UI_LAYOUT_CONTENT.height);
     make_label(card,"本机设置",18,10,&ui_font_study_16,lv_color_hex(UI_COLOR_TEXT_PRIMARY));
+    animation_button(card,"动画 >",104,7,88,animation_open_event,NULL);
     settings_status=make_label(card,"",208,12,&ui_font_study_16,lv_color_hex(UI_COLOR_TEXT_SECONDARY));
     settings_retry=make_control_button(card,354,7,84,28);
     lv_obj_add_event_cb(settings_retry,settings_retry_event,LV_EVENT_CLICKED,NULL);
@@ -688,8 +835,11 @@ static void build_settings_page(void)
 static void study_send_action(const char *action, uint32_t task_id)
 {
     if (!study_can_control()) return;
-    study_local_pending=network_client_study_action(action,task_id,latest_model.study.batch);
+    study_local_pending=strcmp(action,"start")==0?
+        network_client_study_action_timed(action,task_id,latest_model.study.batch,study_minutes):
+        network_client_study_action(action,task_id,latest_model.study.batch);
     update_study_projection();
+    update_focus_timer();
 }
 
 static void study_focus_event(lv_event_t *event)
@@ -704,6 +854,112 @@ static void study_end_event(lv_event_t *event)
 {
     (void)event;
     if (latest_model.study.status!=STUDY_IDLE) study_send_action("end",study_selected_id);
+}
+
+static void focus_back_event(lv_event_t *event)
+{
+    (void)event;focus_minimized=true;rebuild_content();
+}
+static void update_focus_timer(void)
+{
+    if(!focus_layer)return;
+    const study_projection_t *s=&latest_model.study;
+    uint32_t seconds=latest_model.study_clock;char clock[24];
+    if(seconds/60>999)snprintf(clock,sizeof(clock),"--:--");
+    else snprintf(clock,sizeof(clock),"%02" PRIu32 ":%02" PRIu32,seconds/60,seconds%60);
+    lv_label_set_text(focus_time,clock);
+    align_readout(focus_time,(lv_area_t){16,56,464,228},true);
+    lv_label_set_text(focus_title,s->title[0]?s->title:s->is_break?"休息计时":"专注计时");
+    bool pending=study_local_pending||latest_model.study_action==STUDY_ACTION_PENDING;
+    const char *state=!s->online||latest_model.study_stale?"连接中断，等待同步":pending?"正在等待电脑确认":
+        latest_model.study_action==STUDY_ACTION_UNKNOWN?"操作结果待核，请在电脑查看":
+        latest_model.study_action==STUDY_ACTION_ERROR?"操作失败，请重试":
+        latest_model.study_action==STUDY_ACTION_CONFLICT?"状态已变化，请重试":
+        seconds/60>999?"时长超出大字范围，请返回任务":
+        s->status==STUDY_PAUSED?"计时已暂停":s->status==STUDY_READY?"本段到点，请结束或在电脑确认":s->stopwatch?"正在正向计时":"剩余时间，专心做好这一件事";
+    lv_label_set_text(focus_status,state);
+    lv_label_set_text(focus_pause_label,pending?"等待确认":s->status==STUDY_RUNNING?"暂停计时":s->status==STUDY_PAUSED?"继续计时":"本段到点");
+    lv_obj_center(focus_pause_label);
+    if(!study_can_control()||s->status==STUDY_READY)lv_obj_add_state(focus_pause,LV_STATE_DISABLED);else lv_obj_clear_state(focus_pause,LV_STATE_DISABLED);
+    if(!study_can_control())lv_obj_add_state(focus_end,LV_STATE_DISABLED);else lv_obj_clear_state(focus_end,LV_STATE_DISABLED);
+    lv_obj_set_style_text_opa(focus_time,!s->online||latest_model.study_stale?LV_OPA_60:LV_OPA_COVER,0);
+}
+static void build_focus_timer(void)
+{
+    focus_layer=lv_obj_create(screen);lv_obj_remove_style_all(focus_layer);
+    lv_obj_set_pos(focus_layer,0,0);lv_obj_set_size(focus_layer,480,320);
+    lv_obj_set_style_bg_color(focus_layer,lv_color_hex(active_config.background_color),0);
+    lv_obj_set_style_bg_opa(focus_layer,LV_OPA_COVER,0);lv_obj_clear_flag(focus_layer,LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_t *back=make_control_button(focus_layer,16,12,100,30);
+    lv_obj_add_event_cb(back,focus_back_event,LV_EVENT_CLICKED,NULL);
+    lv_obj_t *label=lv_label_create(back);lv_label_set_text(label,"返回任务");lv_obj_center(label);
+    focus_title=make_label(focus_layer,"",136,18,&ui_font_study_16,lv_color_hex(UI_COLOR_TEXT_SECONDARY));
+    lv_obj_set_width(focus_title,320);lv_label_set_long_mode(focus_title,LV_LABEL_LONG_DOT);
+    focus_time=make_label(focus_layer,"00:00",0,0,&ui_font_timer_176,lv_color_hex(active_config.data_text_color));
+    focus_status=make_label(focus_layer,"",24,236,&ui_font_study_16,lv_color_hex(UI_COLOR_TEXT_SECONDARY));
+    lv_obj_set_width(focus_status,432);lv_label_set_long_mode(focus_status,LV_LABEL_LONG_DOT);lv_obj_set_style_text_align(focus_status,LV_TEXT_ALIGN_CENTER,0);
+    focus_pause=make_control_button(focus_layer,24,270,208,36);
+    lv_obj_add_event_cb(focus_pause,study_focus_event,LV_EVENT_CLICKED,NULL);
+    focus_pause_label=lv_label_create(focus_pause);lv_obj_center(focus_pause_label);
+    focus_end=make_control_button(focus_layer,248,270,208,36);
+    lv_obj_add_event_cb(focus_end,study_end_event,LV_EVENT_CLICKED,NULL);
+    label=lv_label_create(focus_end);lv_label_set_text(label,"结束计时");lv_obj_center(label);
+    update_focus_timer();
+}
+static void minute_refresh(void)
+{
+    lv_label_set_text_fmt(minute_value,"%u",minute_draft);
+    align_readout(minute_value,(lv_area_t){110,48,346,144},true);
+}
+static void minute_step_event(lv_event_t *event)
+{
+    int value=(int)minute_draft+(int)(intptr_t)lv_event_get_user_data(event);
+    if(value<1)value=1;
+    if(value>120)value=120;
+    minute_draft=(unsigned)value;minute_refresh();
+}
+static void minute_preset_event(lv_event_t *event)
+{
+    minute_draft=(unsigned)(uintptr_t)lv_event_get_user_data(event);minute_refresh();
+}
+static void minute_close_event(lv_event_t *event)
+{
+    bool apply=(bool)(uintptr_t)lv_event_get_user_data(event);
+    if(apply&&latest_model.study.status==STUDY_IDLE)study_minutes=minute_draft;
+    if(minute_dialog){lv_obj_del(minute_dialog);minute_dialog=NULL;minute_value=NULL;}
+    update_study_projection();
+}
+static void study_duration_event(lv_event_t *event)
+{
+    (void)event;
+    if(latest_model.study.status!=STUDY_IDLE){focus_minimized=false;rebuild_content();return;}
+    if(!study_can_control()||minute_dialog)return;
+    minute_draft=study_minutes;
+    minute_dialog=lv_obj_create(screen);lv_obj_set_pos(minute_dialog,12,16);lv_obj_set_size(minute_dialog,456,236);
+    lv_obj_set_style_bg_color(minute_dialog,lv_color_hex(active_config.background_color),0);
+    lv_obj_set_style_bg_opa(minute_dialog,LV_OPA_COVER,0);lv_obj_set_style_border_width(minute_dialog,2,0);
+    lv_obj_set_style_border_color(minute_dialog,lv_color_hex(active_config.data_text_color),0);
+    lv_obj_set_style_pad_all(minute_dialog,0,0);lv_obj_clear_flag(minute_dialog,LV_OBJ_FLAG_SCROLLABLE);
+    make_label(minute_dialog,"开始前设置时长 / 分钟",18,12,&ui_font_study_16,lv_color_hex(UI_COLOR_TEXT_PRIMARY));
+    make_label(minute_dialog,"1 - 120 / -1 +1",280,16,FONT_TAG,lv_color_hex(UI_COLOR_TEXT_SECONDARY));
+    minute_value=make_label(minute_dialog,"",0,0,&ui_font_poster_84,lv_color_hex(active_config.data_text_color));minute_refresh();
+    for(int i=0;i<2;i++) {
+        lv_obj_t *button=make_control_button(minute_dialog,i?358:18,68,78,52);
+        lv_obj_add_event_cb(button,minute_step_event,LV_EVENT_CLICKED,(void *)(intptr_t)(i?1:-1));
+        lv_obj_add_event_cb(button,minute_step_event,LV_EVENT_LONG_PRESSED_REPEAT,(void *)(intptr_t)(i?1:-1));
+        lv_obj_t *label=lv_label_create(button);lv_label_set_text(label,i?"+":"-");lv_obj_center(label);
+    }
+    const unsigned presets[]={15,25,45,60};
+    for(int i=0;i<4;i++) {
+        lv_obj_t *button=make_control_button(minute_dialog,18+i*107,150,99,32);
+        lv_obj_add_event_cb(button,minute_preset_event,LV_EVENT_CLICKED,(void *)(uintptr_t)presets[i]);
+        lv_obj_t *label=lv_label_create(button);lv_label_set_text_fmt(label,"%u",presets[i]);lv_obj_center(label);
+    }
+    for(int i=0;i<2;i++) {
+        lv_obj_t *button=make_control_button(minute_dialog,18+i*214,194,206,30);
+        lv_obj_add_event_cb(button,minute_close_event,LV_EVENT_CLICKED,(void *)(uintptr_t)i);
+        lv_obj_t *label=lv_label_create(button);lv_label_set_text(label,i?"设定":"取消");lv_obj_center(label);
+    }
 }
 
 static void study_select_event(lv_event_t *event)
@@ -752,6 +1008,9 @@ static void build_study_projection(void)
     lv_obj_t *card = make_card(0, 0, UI_LAYOUT_CONTENT.width, UI_LAYOUT_CONTENT.height);
     make_label(card, "TODAY / STUDY LINK", 14, 12, FONT_TAG, lv_color_hex(UI_COLOR_TEXT_SECONDARY));
     study_clock_label = make_label(card, "--:--", 14, 45, FONT_METRIC, lv_color_hex(active_config.data_text_color));
+    study_duration_button=make_control_button(card,102,48,104,30);
+    lv_obj_add_event_cb(study_duration_button,study_duration_event,LV_EVENT_CLICKED,NULL);
+    study_duration_label=lv_label_create(study_duration_button);lv_obj_center(study_duration_label);
     study_title_label = make_label(card, "", 14, 92, &ui_font_study_16, lv_color_hex(UI_COLOR_TEXT_PRIMARY));
     lv_obj_set_size(study_title_label, 188, 42);
     lv_label_set_long_mode(study_title_label, LV_LABEL_LONG_DOT);
@@ -819,8 +1078,13 @@ static void update_study_projection(void)
         latest_model.study_action==STUDY_ACTION_ERROR?"操作失败，请检查电脑":
         latest_model.study_action==STUDY_ACTION_UNKNOWN?"结果待核，请在电脑查看":"方框完成 / 点击选任务";
     lv_label_set_text(study_hint,hint);
-    lv_label_set_text(study_action_label,pending?"等待确认":s->status==STUDY_IDLE?"开始25分":
-                      s->status==STUDY_RUNNING?"暂停计时":s->status==STUDY_PAUSED?"继续计时":"本段到点");
+    if(s->status==STUDY_IDLE&&!pending)lv_label_set_text_fmt(study_action_label,"开始%u分",study_minutes);
+    else lv_label_set_text(study_action_label,pending?"等待确认":s->status==STUDY_RUNNING?"暂停计时":s->status==STUDY_PAUSED?"继续计时":"本段到点");
+    if(s->status==STUDY_IDLE)lv_label_set_text_fmt(study_duration_label,"%u 分钟 >",study_minutes);
+    else lv_label_set_text(study_duration_label,"放大显示");
+    lv_obj_center(study_duration_label);
+    if(s->status==STUDY_IDLE&&!study_can_control())lv_obj_add_state(study_duration_button,LV_STATE_DISABLED);
+    else lv_obj_clear_state(study_duration_button,LV_STATE_DISABLED);
     lv_obj_center(study_action_label);
     bool can=study_can_control();
     if (!can || s->status==STUDY_READY || (s->status==STUDY_IDLE && (!selected || selected->done)))
@@ -854,8 +1118,14 @@ static void update_study_projection(void)
 
 static void rebuild_content(void)
 {
+    if(focus_layer){lv_obj_del(focus_layer);focus_layer=NULL;}
+    if(minute_dialog){lv_obj_del(minute_dialog);minute_dialog=NULL;}
+    focus_time=focus_title=focus_status=focus_pause=focus_pause_label=focus_end=NULL;
+    study_duration_button=study_duration_label=minute_value=NULL;
     if (settings_slider && device_settings_dirty()) settings_save();
     settings_slider=settings_value=settings_status=settings_retry=NULL;
+    animation_status_label=NULL;
+    if(router.active_page!=MONITOR_PAGE_SETTINGS){animation_settings_open=false;media_assets_cancel_preview();}
     if (study_confirm) { lv_obj_del(study_confirm); study_confirm=NULL; }
     ui_motion_cancel(cpu_view.bar);
     ui_motion_cancel(memory_view.bar);
@@ -880,7 +1150,8 @@ static void rebuild_content(void)
     } else if (router.active_page == MONITOR_PAGE_SYSTEM) {
         build_system_cards(active_config.show_cpu, active_config.show_memory);
     } else if (router.active_page == MONITOR_PAGE_STUDY) {
-        if (has_model && latest_model.study.available) build_study_projection();
+        if(has_model&&latest_model.study.available&&latest_model.study.status!=STUDY_IDLE&&!focus_minimized)build_focus_timer();
+        else if (has_model && latest_model.study.available) build_study_projection();
         else if (active_config.show_exam) make_countdown_card(UI_LAYOUT_STUDY_COUNTDOWN.x - UI_LAYOUT_CONTENT.x,
                                                          UI_LAYOUT_STUDY_COUNTDOWN.y - UI_LAYOUT_CONTENT.y,
                                                          UI_LAYOUT_STUDY_COUNTDOWN.width,
@@ -1065,6 +1336,7 @@ static void update_countdown(const ui_model_t *model, const ui_model_t *previous
 
 static void update_dynamic_content(void)
 {
+    animation_update();
     if (!has_model) return;
     bool force = force_render || !has_rendered_model;
     if (force || latest_model.connection != rendered_model.connection) {
@@ -1082,6 +1354,7 @@ static void update_dynamic_content(void)
     update_countdown(&latest_model, &rendered_model, force);
     if (force || latest_model.study_action != rendered_model.study_action || memcmp(&latest_model.study, &rendered_model.study, sizeof(latest_model.study)) != 0 ||
         latest_model.study_clock != rendered_model.study_clock || latest_model.study_stale != rendered_model.study_stale) update_study_projection();
+    if(force || latest_model.study_clock!=rendered_model.study_clock || latest_model.study_stale!=rendered_model.study_stale || memcmp(&latest_model.study,&rendered_model.study,sizeof(latest_model.study))!=0 || latest_model.study_action!=rendered_model.study_action)update_focus_timer();
     rendered_model = latest_model;
     has_rendered_model = true;
     force_render = false;
@@ -1210,6 +1483,9 @@ void ui_shell_update(const ui_model_t *model)
     bool focus_started = model->study.available && model->study.online && model->study.status == STUDY_RUNNING &&
         (!has_model || latest_model.study.status == STUDY_IDLE ||
          (model->study.session_id[0] && strcmp(model->study.session_id, latest_model.study.session_id) != 0));
+    bool was_focus=has_model&&latest_model.study.available&&latest_model.study.status!=STUDY_IDLE;
+    bool now_focus=model->study.available&&model->study.status!=STUDY_IDLE;
+    if(focus_started||!now_focus)focus_minimized=false;
     bool study_changed = router.show_study != model->study.available;
     bool was_study = router.active_page == MONITOR_PAGE_STUDY;
     router.show_study = model->study.available;
@@ -1220,7 +1496,7 @@ void ui_shell_update(const ui_model_t *model)
     latest_model = *model;
     has_model = true;
     bool follow = focus_started && !showing_connection_panel && router.active_page!=MONITOR_PAGE_SETTINGS && ui_router_set_page(&router, MONITOR_PAGE_STUDY);
-    if (follow || (study_changed && (was_study || router.active_page == MONITOR_PAGE_STUDY))) rebuild_content();
+    if (follow || ((was_focus!=now_focus||focus_started)&&router.active_page==MONITOR_PAGE_STUDY) || (study_changed && (was_study || router.active_page == MONITOR_PAGE_STUDY))) rebuild_content();
     else if (study_changed) update_navigation();
     update_dynamic_content();
 }

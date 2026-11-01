@@ -1,6 +1,9 @@
 import { validateStudySnapshot, type StudySnapshot } from "./study-bridge.js";
 
-export type StudyAction = { id: string; action: "start" | "pause" | "resume" | "end" | "done"; taskId?: number };
+export type StudyAction = { id: string; action: "start" | "pause" | "resume" | "end" | "done"; taskId?: number; durationSeconds?: number };
+export function validStudyDuration(action: string | undefined, value: unknown): boolean {
+  return value === undefined || (action === "start" && typeof value === "number" && Number.isInteger(value) && value >= 60 && value <= 7200 && value % 60 === 0);
+}
 export type StudyActionResult = { type: "studyActionResult"; id: string; status: "ok" | "conflict" | "error" | "unknown" };
 export type StudyWrite = (path: string, body: Record<string, unknown>) => Promise<void>;
 
@@ -17,6 +20,7 @@ export class StudyController {
   constructor(private readonly read: () => Promise<unknown>, private readonly write: StudyWrite = writeStudy) {}
   async execute(command: StudyAction, shown: StudySnapshot, visibleIds: number[]): Promise<StudyActionResult> {
     const result = (status: StudyActionResult["status"]): StudyActionResult => ({ type: "studyActionResult", id: command.id, status });
+    if (!validStudyDuration(command.action, command.durationSeconds)) return result("error");
     if (this.busy) return result("conflict");
     this.busy = true;
     try {
@@ -37,7 +41,7 @@ export class StudyController {
           (command.action === "start" ? s.status !== "idle" :
            command.action === "pause" ? s.status !== "running" : command.action === "end" ? s.status === "idle" : s.status !== "paused")) return result("conflict");
       await this.write("/api/focus/action", { request_id: `esp32:${command.id}`, revision: s.revision,
-        action: command.action, ...(command.action === "start" ? { task_id: command.taskId, mode: "pomodoro", phase: "focus", duration_seconds: 1500 } : {}) });
+        action: command.action, ...(command.action === "start" ? { task_id: command.taskId, mode: "pomodoro", phase: "focus", duration_seconds: command.durationSeconds ?? 1500 } : {}) });
       return result("ok");
     } catch (error) {
       return result(error instanceof StudyHttpError ? error.status === 409 ? "conflict" : "error" : "unknown");

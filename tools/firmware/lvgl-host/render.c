@@ -8,6 +8,8 @@
 #include "ui_motion.h"
 #include "ui_layouts.generated.h"
 #include "device_settings.h"
+#include "animation_preferences.h"
+#include "media_assets.h"
 
 static unsigned char frame[320][480][3];
 static unsigned long long flushed_pixels;
@@ -18,10 +20,23 @@ static uint16_t requested_study_page;
 static int study_action_requests;
 static char requested_action[16];
 static uint32_t requested_task;
+static unsigned requested_minutes;
 static uint32_t local_store;
 static bool local_store_exists,local_save_failure;
 static int local_writes;
 static uint8_t applied_brightness;
+static uint8_t animation_store[ANIMATION_PREFERENCES_BYTES];
+static bool animation_store_exists,animation_store_failure;
+static unsigned animation_writes,animation_preview_requests,animation_media_requests;
+static media_library_snapshot_t animation_fixture={.count=4,.storage=true,.online=false,.status=MEDIA_READY,
+    .cached_count=4,
+    .loaded_id="builtin",.requested_id="builtin",
+    .entries={{"builtin","ORIGINAL",true},{"aaaaaaaaaaaaaaaa","CLIP 02",true},{"bbbbbbbbbbbbbbbb","CLIP 03",true},{"cccccccccccccccc","CLIP 04",true}}};
+bool animation_preferences_storage_load(uint8_t value[ANIMATION_PREFERENCES_BYTES]){memcpy(value,animation_store,sizeof(animation_store));return animation_store_exists;}
+bool animation_preferences_storage_save(const uint8_t value[ANIMATION_PREFERENCES_BYTES]){animation_writes++;if(animation_store_failure)return false;memcpy(animation_store,value,sizeof(animation_store));animation_store_exists=true;return true;}
+void media_assets_snapshot(media_library_snapshot_t *value){*value=animation_fixture;}
+bool media_assets_request(const char *id,bool preview){animation_media_requests++;snprintf(animation_fixture.requested_id,17,"%s",id);if(preview)animation_preview_requests++;return true;}
+void media_assets_cancel_preview(void){}
 bool device_settings_storage_load(uint32_t *value) { *value=local_store;return local_store_exists; }
 bool device_settings_storage_save(uint32_t value) {
     ++local_writes;if(local_save_failure)return false;local_store=value;local_store_exists=true;return true;
@@ -30,6 +45,9 @@ void device_settings_apply(uint8_t brightness,bool reduced) { applied_brightness
 void network_client_study_page(uint16_t page) { requested_study_page = page; }
 bool network_client_study_action(const char *action,uint32_t id,const char *batch) {
     assert(batch);++study_action_requests;snprintf(requested_action,sizeof(requested_action),"%s",action);requested_task=id;return true;
+}
+bool network_client_study_action_timed(const char *action,uint32_t id,const char *batch,unsigned minutes) {
+    requested_minutes=minutes;return network_client_study_action(action,id,batch);
 }
 
 static void flush(lv_disp_drv_t *driver, const lv_area_t *area, lv_color_t *pixels)
@@ -261,6 +279,7 @@ int main(int argc, char **argv)
 {
     assert(argc == 2);
     device_settings_init();
+    animation_preferences_init();
     lv_init();
     static lv_color_t pixels[480 * 24];
     static lv_disp_draw_buf_t buffer;
@@ -600,7 +619,10 @@ int main(int argc, char **argv)
     config.page = MONITOR_PAGE_STUDY; config.show_exam = false;
     ui_shell_apply_config(&config); ui_shell_update(&model); step(500);
     assert(find_label(lv_scr_act(), "23:45")); ++checks;
-    assert(find_label(lv_scr_act(), "正在专注")); ++checks;
+    assert(find_label(lv_scr_act(), "剩余时间，专心做好这一件事")); ++checks;
+    assert(lv_obj_get_style_text_font(find_label(lv_scr_act(),"23:45"),0)->line_height>120);++checks;
+    bitmap(argv[1],"focus-timer-running");
+    tap(66,27,80);assert(find_label(lv_scr_act(),"正在专注"));++checks;
     bitmap(argv[1], "study-task-link-online");
     tap(428, 220, 80); assert(requested_study_page == 1); ++checks;
     /* Background presses never highlight the whole passive study surface. */
@@ -679,6 +701,93 @@ int main(int argc, char **argv)
     assert(ui_shell_is_settings_open());++checks;
     tap(437,110,80);assert(applied_brightness==30);++checks;
     bitmap(argv[1],"settings-local-only");
+    /* Browsing is side-effect free; plans save before a clip is loaded. */
+    device_settings_set_screensaver(true);
+    model.study.status=STUDY_IDLE;ui_shell_update(&model);step(50);
+    tap(160,38,80);expect("屏保播放");expect("ORIGINAL");
+    assert(animation_writes==0&&animation_media_requests==0);++checks;
+    tap(200,143,80);expect("CLIP 02");
+    assert(animation_media_requests==0);++checks;
+    animation_fixture.busy=true;animation_fixture.status=MEDIA_DOWNLOADING;animation_fixture.total=100;animation_fixture.received=50;
+    ui_shell_update(&model);step(50);tap(392,227,80);
+    expect_page(MONITOR_PAGE_SETTINGS);assert(ui_shell_is_settings_open());++checks;
+    assert(animation_writes==1&&animation_preview_requests==0&&animation_media_requests==1);++checks;
+    assert(strcmp(animation_preferences_get()->id,"aaaaaaaaaaaaaaaa")==0&&animation_preferences_get()->mode==ANIMATION_SINGLE);++checks;
+    assert(strcmp(animation_fixture.loaded_id,"builtin")==0);++checks;
+    bitmap(argv[1],"settings-animation-save-while-loading");
+    animation_fixture.busy=false;animation_fixture.status=MEDIA_READY;ui_shell_update(&model);step(50);
+    expect("已保存");
+    tap(200,183,80);animation_store_failure=true;unsigned requests_before_failure=animation_media_requests;tap(392,227,80);expect("保存失败");
+    assert(strcmp(animation_preferences_get()->id,"aaaaaaaaaaaaaaaa")==0&&animation_media_requests==requests_before_failure);++checks;
+    animation_store_failure=false;unsigned writes_before_preview=animation_writes;
+    tap(269,227,80);assert(animation_preview_requests==1&&animation_writes==writes_before_preview);++checks;
+    assert(strcmp(animation_preferences_get()->id,"aaaaaaaaaaaaaaaa")==0);++checks;
+    assert(!study_status_blocks_media(STUDY_IDLE)&&!study_status_blocks_media(STUDY_PAUSED));++checks;
+    assert(study_status_blocks_media(STUDY_RUNNING)&&study_status_blocks_media(STUDY_READY));++checks;
+    model.study.status=STUDY_PAUSED;ui_shell_update(&model);step(50);
+    unsigned before_pause_preview=animation_preview_requests;int before_pause_control=study_action_requests;
+    tap(269,227,80);assert(animation_preview_requests==before_pause_preview+1);++checks;
+    assert(model.study.status==STUDY_PAUSED&&study_action_requests==before_pause_control);++checks;
+    model.study.status=STUDY_RUNNING;ui_shell_update(&model);step(50);
+    before_pause_preview=animation_preview_requests;tap(269,227,80);assert(animation_preview_requests==before_pause_preview);++checks;
+    model.study.status=STUDY_IDLE;ui_shell_update(&model);step(50);
+    tap(377,39,80);expect("队列轮播");assert(animation_preferences_get()->mode==ANIMATION_SINGLE);++checks;
+    tap(392,227,80);expect_page(MONITOR_PAGE_SETTINGS);assert(ui_shell_is_settings_open());++checks;
+    animation_preferences_init();assert(strcmp(animation_preferences_get()->id,"builtin")==0&&animation_preferences_get()->mode==ANIMATION_SEQUENCE);++checks;
+    tap(62,39,80);tap(160,38,80);expect("队列 4 段");
+    bitmap(argv[1],"settings-animation-selected");
+    tap(98,227,80);expect("CLIP 04");bitmap(argv[1],"settings-animation-page-two");
+    tap(62,39,80);expect("屏幕亮度");assert(applied_brightness==30);++checks;
+    animation_fixture.storage=false;tap(160,38,80);expect("插入TF卡");
+    unsigned before_preview=animation_preview_requests;tap(269,227,80);assert(animation_preview_requests==before_preview);++checks;
+    tap(377,39,80);tap(200,143,80);tap(392,227,80);
+    assert(animation_preferences_get()->mode==ANIMATION_SINGLE&&strcmp(animation_preferences_get()->id,"aaaaaaaaaaaaaaaa")==0);++checks;
+    expect_page(MONITOR_PAGE_SETTINGS);assert(ui_shell_is_settings_open());++checks;
+    bitmap(argv[1],"settings-animation-no-card");
+    animation_fixture.storage=true;animation_fixture.busy=true;animation_fixture.status=MEDIA_DOWNLOADING;animation_fixture.total=100;animation_fixture.received=50;
+    ui_shell_update(&model);step(50);expect("下载到TF 50%");bitmap(argv[1],"settings-animation-downloading");
+    animation_fixture.prefetching=true;animation_fixture.status=MEDIA_CHECKING;animation_fixture.cached_count=2;
+    ui_shell_update(&model);step(50);expect("后台校验TF缓存 2/4");++checks;
+    animation_fixture.status=MEDIA_DOWNLOADING;snprintf(animation_fixture.transfer_label,17,"CLIP 03");
+    ui_shell_update(&model);step(50);expect("后台缓存 CLIP 03 50%");++checks;
+    animation_fixture.prefetching=false;animation_fixture.status=MEDIA_LOADING;ui_shell_update(&model);step(50);expect("从TF载入");++checks;
+    animation_fixture.busy=false;animation_fixture.status=MEDIA_FAILED;ui_shell_update(&model);step(50);expect("离线");
+    bitmap(argv[1],"settings-animation-offline");
+    /* Timer writes below use the host fixture only, never the real study service. */
+    model.study_action=STUDY_ACTION_PENDING;ui_shell_update(&model);
+    model.study_action=STUDY_ACTION_NONE;model.study.status=STUDY_IDLE;
+    model.study.online=true;model.study.controls=true;model.study_stale=false;
+    model.study.session_id[0]=0;model.study.title[0]=0;model.study_clock=0;
+    config.page=MONITOR_PAGE_STUDY;ui_shell_apply_config(&config);ui_shell_update(&model);step(100);
+    int before_timer=study_action_requests;
+    tap(166,79,80);expect("开始前设置时长");
+    tap(292,182,80);expect("45");bitmap(argv[1],"focus-timer-minute-picker");
+    tap(347,225,80);expect("开始45分");assert(study_action_requests==before_timer);++checks;
+    tap(90,222,80);assert(strcmp(requested_action,"start")==0&&requested_minutes==45);++checks;
+    model.study_action=STUDY_ACTION_PENDING;ui_shell_update(&model);
+    model.study_action=STUDY_ACTION_OK;model.study.status=STUDY_RUNNING;model.study_clock=2700;
+    model.study.remaining=2700;model.study.elapsed=0;snprintf(model.study.session_id,sizeof(model.study.session_id),"timer-duration-fixture");
+    snprintf(model.study.title,sizeof(model.study.title),"测试夹具：只读画面验收");ui_shell_update(&model);step(100);
+    expect("45:00");assert(!find_label(lv_scr_act(),"TODAY / STUDY LINK"));++checks;
+    bitmap(argv[1],"focus-timer-45-minutes");
+    tap(128,288,80);assert(strcmp(requested_action,"pause")==0);++checks;
+    before_timer=study_action_requests;tap(128,288,80);assert(study_action_requests==before_timer);++checks;
+    model.study_action=STUDY_ACTION_PENDING;ui_shell_update(&model);
+    model.study_action=STUDY_ACTION_OK;model.study.status=STUDY_PAUSED;ui_shell_update(&model);step(50);expect("计时已暂停");
+    bitmap(argv[1],"focus-timer-paused");
+    tap(128,288,80);assert(strcmp(requested_action,"resume")==0);++checks;
+    model.study_action=STUDY_ACTION_PENDING;ui_shell_update(&model);
+    model.study_action=STUDY_ACTION_OK;model.study.status=STUDY_RUNNING;ui_shell_update(&model);step(50);
+    before_timer=study_action_requests;tap(66,27,80);expect("放大显示");assert(study_action_requests==before_timer);++checks;
+    tap(166,79,80);expect("45:00");
+    model.study_stale=true;ui_shell_update(&model);step(50);expect("连接中断");
+    tap(128,288,80);tap(350,288,80);assert(study_action_requests==before_timer);++checks;
+    bitmap(argv[1],"focus-timer-offline");
+    model.study_stale=false;model.study_clock=7200;ui_shell_update(&model);step(50);expect("120:00");bitmap(argv[1],"focus-timer-120-minutes");
+    model.study.status=STUDY_IDLE;model.study_clock=0;model.study.session_id[0]=0;ui_shell_update(&model);step(50);expect("开始45分");
+    tap(166,79,80);tap(80,182,80);tap(69,110,4000);expect("1");
+    tap(396,182,80);tap(409,110,10000);expect("120");
+    tap(133,225,80);expect("开始45分");assert(study_action_requests==before_timer);++checks;
     printf("{\"checks\":%d,\"idleFlushPixels\":%llu,\"clockTickFlushPixels\":%llu,\"studyMotion4sFlushPixels\":%llu,\"systemMotion4sFlushPixels\":%llu,\"overviewMotion4sFlushPixels\":%llu,\"source\":\"LVGL 8.4 host renderer; synthetic fixtures\"}\n",
            checks, idle_pixels, clock_pixels, study_pixels, system_pixels, overview_pixels);
     return 0;

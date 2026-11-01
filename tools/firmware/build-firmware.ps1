@@ -7,7 +7,8 @@ param(
     [string]$BuildDir = (Join-Path $env:TEMP 'zzz-esp32-monitor-build'),
     [string]$Port = '',
     [switch]$SetTarget,
-    [switch]$Flash
+    [switch]$Flash,
+    [switch]$DisplayBenchmark
 )
 $ErrorActionPreference = 'Stop'
 if (-not $IdfPath -or -not (Test-Path (Join-Path $IdfPath 'tools/idf.py'))) {
@@ -40,7 +41,8 @@ try {
         & $PythonPath $idf @arguments set-target esp32s3
         if ($LASTEXITCODE -ne 0) { throw 'set-target failed' }
     }
-    & $PythonPath $idf @arguments build
+    $benchmarkValue = if ($DisplayBenchmark) { 'ON' } else { 'OFF' }
+    & $PythonPath $idf @arguments "-DMONITOR_DISPLAY_BENCHMARK=$benchmarkValue" build
     if ($LASTEXITCODE -ne 0) { throw 'Firmware build failed' }
     $dist = Join-Path $sourceRoot 'dist'
     New-Item -ItemType Directory -Force -Path $dist | Out-Null

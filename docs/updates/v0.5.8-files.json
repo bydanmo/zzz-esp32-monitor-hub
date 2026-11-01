@@ -1,0 +1,384 @@
+{
+  "baseCommit": "58bddfd41adf2c3a78d5be9b19d1d2e8276544c2",
+  "hashFormat": "SHA256 of LF-normalized source bytes; excludes this manifest itself",
+  "files": [
+    {
+      "path": ".env.example",
+      "beforeSha256": "beefe04449687f572ed0949cb6a90012eeaf06c74e8d9d92efc521733a846544",
+      "afterSha256": "33416bac66d1687f2ad8175d829f30f37ccf007c6f0b75542ee684975027e1ef",
+      "bytes": 423
+    },
+    {
+      "path": "AGENTS.md",
+      "beforeSha256": "dedb3bdbdc4c42c490089fb96780a62803cf7fd0bf9a7d1ccb1a83da92838d7d",
+      "afterSha256": "20e638f16ad5cedbb4c9872bd5bf8238de9d2fbbeaf83feee1ed0082ced1d0ee",
+      "bytes": 1922
+    },
+    {
+      "path": "README.md",
+      "beforeSha256": "1139ab90910bf6ca418c1515a1853f221be8d9b5938e7b239e677788a4922501",
+      "afterSha256": "230f5153f887279e8fcbfddd36e130742bd0c97ed3ba3faf6b6ae4797c7338cf",
+      "bytes": 2702
+    },
+    {
+      "path": "apps/hub/package.json",
+      "beforeSha256": "24f8f4136f8e803422ae9fc673547408752b9821ab7e27d9ed4a496f8aca61e3",
+      "afterSha256": "c48d573f5a81d92596ce0f7aa1cacb14acbfbe1f4868a66e447889949bdaff22",
+      "bytes": 814
+    },
+    {
+      "path": "apps/hub/src/animation-converter.ts",
+      "beforeSha256": null,
+      "afterSha256": "cf5776f167aa927dd75f4fe131d75c56e3d3b1eab6925265554a1b0df7234649",
+      "bytes": 3100
+    },
+    {
+      "path": "apps/hub/src/animation-library.ts",
+      "beforeSha256": null,
+      "afterSha256": "9c44601d8a9327e04f6134b86c79f51c6c0e312db84611757fe8ccaff1bfe1ed",
+      "bytes": 11282
+    },
+    {
+      "path": "apps/hub/src/animation-routes.ts",
+      "beforeSha256": null,
+      "afterSha256": "f3b7e4e46e7636715999a6b3de38e9abf30b2e95446dc36ec57357476816a94d",
+      "bytes": 3480
+    },
+    {
+      "path": "apps/hub/src/index.ts",
+      "beforeSha256": "ef031075840639e0270456b9ab8778c338f17bd70cf26c242733f14f6644c7f2",
+      "afterSha256": "ad3fba71c913d211cc078abfd7ddff892a51f69ead66a1cc829b53e26b7b79eb",
+      "bytes": 10004
+    },
+    {
+      "path": "apps/hub/src/providers/system-provider.ts",
+      "beforeSha256": "631568cbce4f2c85f6574e1418db05db6f56694e6a583aafd80fefd0cb7a1e46",
+      "afterSha256": "0861fbc712fb76fb7dbd09dbdc431341e2836f328b9343d8e87e65b09222090f",
+      "bytes": 4916
+    },
+    {
+      "path": "apps/hub/src/providers/system-source.ts",
+      "beforeSha256": null,
+      "afterSha256": "70cbc6b2389bbdea58c43d45069ba25d73f9c848cbeee8ba9eef7d3289f9baee",
+      "bytes": 564
+    },
+    {
+      "path": "apps/hub/src/providers/windows-native-source.ts",
+      "beforeSha256": null,
+      "afterSha256": "801e1f92291e10d17efdfcc09a3347b320c773528be5bbffd754487c2f91b7f1",
+      "bytes": 7540
+    },
+    {
+      "path": "apps/hub/src/study-bridge.ts",
+      "beforeSha256": "780adac8c6c2dbe59501c0436c5914c6e8d6d388ab48807f56f0db282f7fee95",
+      "afterSha256": "e61d23ebe85ca530d89927e6699b40be5c7a622d2c11fe14570acf7f5b1640c6",
+      "bytes": 11878
+    },
+    {
+      "path": "apps/hub/src/study-control.ts",
+      "beforeSha256": "3134d1195300c5a0282ca2bde7065c7e14772011120dd04b54239b036189775e",
+      "afterSha256": "56a2ca4fd2b58eb9a2338b51024fce8f528c21703a7b1911da99fbaeca86deba",
+      "bytes": 3274
+    },
+    {
+      "path": "apps/web/src/app/App.tsx",
+      "beforeSha256": "327449ff0b7fa962122af675d10bfa062237c2c75cf01ef4707af39076624af9",
+      "afterSha256": "d6ac4dd47b66bdbb8700361e9d60ec5228bc0543a3abddfbb32be8b3706ca7f3",
+      "bytes": 10870
+    },
+    {
+      "path": "apps/web/src/features/animations/AnimationLibrary.tsx",
+      "beforeSha256": null,
+      "afterSha256": "d5df43e87bb5e884e2b7e0a2c0bb9eeec94a2a75661edc0e324ffebb218e916a",
+      "bytes": 11439
+    },
+    {
+      "path": "apps/web/src/features/animations/animation-library.css",
+      "beforeSha256": null,
+      "afterSha256": "bb79b8ac964265ec00cfa48d3d72e1752d9a5669e56043cf49a6b1be82084c52",
+      "bytes": 5295
+    },
+    {
+      "path": "docs/README.md",
+      "beforeSha256": "3af704339b6393439b47efc14163a4d19b36c0819ea04865144287c4dcd77a8c",
+      "afterSha256": "e0b34c3e1a9b0c6af88b7d9e105075cd61304d39d3b59b859707c30550f72bee",
+      "bytes": 882
+    },
+    {
+      "path": "docs/STATUS.md",
+      "beforeSha256": "558e3d41ac48e1236b030aecc9607f89a8987f27b49b3758898138490bde4a6d",
+      "afterSha256": "b934a8dc77bad9077c52f7fa552977c8bca7101d7068a1dc2855ba51e3627711",
+      "bytes": 2757
+    },
+    {
+      "path": "docs/THIRD_PARTY_NOTICES.md",
+      "beforeSha256": "193f31c748be4a65b46c2f35a1dda9307bfd852834912104eba08dbc0ef4e79a",
+      "afterSha256": "819c685c87c93c2ec21607aa1c0e2ffd74a5be3b656d37fe6b05181aea39c994",
+      "bytes": 1625
+    },
+    {
+      "path": "docs/media.md",
+      "beforeSha256": "ad9a7ec3512f9528d96ab5ff4b8e948b0947cc0c281eb47cfc9b6b76c3c009b2",
+      "afterSha256": "61c8d0d71e3f6b1aee6b942eb11e7d693af5856a35d7921133859ba433121cc8",
+      "bytes": 5422
+    },
+    {
+      "path": "docs/updates/v0.5.8.md",
+      "beforeSha256": null,
+      "afterSha256": "41638dfafa754f45bf85df86fba598dae68f83736453cef6a96eb73603874172",
+      "bytes": 4272
+    },
+    {
+      "path": "docs/validation-v0.5.8.json",
+      "beforeSha256": null,
+      "afterSha256": "0b08aa956a59ea24d2a9cc725f5ce1a2be90075b9523df15c97da8562f36f504",
+      "bytes": 1755
+    },
+    {
+      "path": "docs/versions.md",
+      "beforeSha256": "61f3145266f96052e77dd70f8106e6de13876c3092f247e9af7496c4d1292eb9",
+      "afterSha256": "274e3c5933d5bd096ccec6976d94756ba46194b2ecf780fb26e9d6cf5735cb62",
+      "bytes": 2622
+    },
+    {
+      "path": "firmware/CMakeLists.txt",
+      "beforeSha256": "6a06fd4ab2d6ec539ac1db1dc92e67753f7a360f5cdb2081f2f1d84148878f19",
+      "afterSha256": "d1b57c4e7c2a1502583fc6481dbc26e4c82072d1c55a0d9275df24e06e675a8b",
+      "bytes": 228
+    },
+    {
+      "path": "firmware/README.md",
+      "beforeSha256": "f7df989ee8666136f335e4c6392e5ea117e59a55630ea9d724c91b0318471d85",
+      "afterSha256": "b9b0b5e83af02eb57775fc3696e832046ba4ffb22e78d2ec3a1a7222acf21504",
+      "bytes": 5341
+    },
+    {
+      "path": "firmware/main/CMakeLists.txt",
+      "beforeSha256": "0c33c2648896782203c4e02759eb297663a3e4e96e3245b10d2202101d6fd996",
+      "afterSha256": "24e08619dc4d240711ab5d649029ef8923fd978e6625b3a6bb6ed6b47129aa81",
+      "bytes": 1049
+    },
+    {
+      "path": "firmware/main/animation_preferences.c",
+      "beforeSha256": null,
+      "afterSha256": "5c8ee3932c982225a4be9689886ab322233ed5770eb4a08b9baeb73094b3362b",
+      "bytes": 1844
+    },
+    {
+      "path": "firmware/main/animation_preferences.h",
+      "beforeSha256": null,
+      "afterSha256": "505c71b78e10f8350f4a95e505f0a6bf1eba66152ba75683a8a31bdbb54428aa",
+      "bytes": 795
+    },
+    {
+      "path": "firmware/main/board_display.c",
+      "beforeSha256": "3703271eee7f97e37fe9933ae1ebea9ff74c0c73eb675b5760a9181f3dbff245",
+      "afterSha256": "1060c1d02ed0d8975d5d579f845b1c0fde9876324f221bef8a817efcc03e4602",
+      "bytes": 10796
+    },
+    {
+      "path": "firmware/main/board_display.h",
+      "beforeSha256": "b537c860415c9ce12bd416da0b7f6cc438bea127ec24c8c8d386ec7b8cae2104",
+      "afterSha256": "3e871b484174fb7d9312611923e90f3373f9558ae8ce54dfffcaa507eb585608",
+      "bytes": 1326
+    },
+    {
+      "path": "firmware/main/crt_clock.c",
+      "beforeSha256": "3768f08293f6fa8a864c12319849427e0897e91493f03a73d5992f2405469c91",
+      "afterSha256": "cc3907e44ff37b58206efefd6b914a65b8c7b8c10fbc5991fbab7b603f6247d4",
+      "bytes": 6455
+    },
+    {
+      "path": "firmware/main/crt_clock.h",
+      "beforeSha256": "3cc58ec146819b8d2572558bcc56b01f9ff2512c0d72246555950aabed739195",
+      "afterSha256": "0e13cc5035464c7cb2742fb1e36e43e3c0e0fe588dfbfc3db4ea8012531b7faf",
+      "bytes": 606
+    },
+    {
+      "path": "firmware/main/device_settings_nvs.c",
+      "beforeSha256": "4d75445f9488ef7714ea6db63d68c210613b78e47880520a84a426178e698eba",
+      "afterSha256": "1703250c5ebadbc8468e0a8499b154582ce3bfab774cde427192210ad99ee290",
+      "bytes": 2360
+    },
+    {
+      "path": "firmware/main/display_pixels.h",
+      "beforeSha256": null,
+      "afterSha256": "f2917a80d9905f345242ae6855a878ff741e8c2c4b91ddb6eadfeae8a0352ff4",
+      "bytes": 371
+    },
+    {
+      "path": "firmware/main/lvgl_port.c",
+      "beforeSha256": "9240fc1f32be7027bc9713c15c36b1cbff68979159ed6db8f7637d61e6758abe",
+      "afterSha256": "351ea9dca4639878dd1328cf0f2506868348a46804e163ca71c7eb8a56ee818c",
+      "bytes": 8305
+    },
+    {
+      "path": "firmware/main/lvgl_port.h",
+      "beforeSha256": "ec9b9a6f25eb9034c1318a6d80cfcfb47ba02c3f74605eeed796c881ac725694",
+      "afterSha256": "39eb15c8cb0beeb3f17c23f40d2b6036afc98b6e1c6e6629396a371e6b02d435",
+      "bytes": 209
+    },
+    {
+      "path": "firmware/main/main.c",
+      "beforeSha256": "d1d01ef467aff6dd50dc514cb46a8cbe3513378a109ed1d4372734dd4c1e8f89",
+      "afterSha256": "44e4fdb87feafb275e5e5ae48b6aa2472aca273dada593ef0b5964f79f8dc8dc",
+      "bytes": 9513
+    },
+    {
+      "path": "firmware/main/media_assets.c",
+      "beforeSha256": "9a02e11e69fd4ae91cc2a1c4242e3d1170dba99cd09281a700c5577c3e037620",
+      "afterSha256": "014c5af7be836c20725ce167e4295da26b52c0274d380c6037ede121797343bb",
+      "bytes": 18606
+    },
+    {
+      "path": "firmware/main/media_assets.h",
+      "beforeSha256": "307fc69294b8f854211bb922f7303e891099cb5e0893a4d2214c6fbb80a70a3b",
+      "afterSha256": "be78874316a02dc39d0b7161484e73aaf2bf13714ed2b7729929fa3f565e6838",
+      "bytes": 1331
+    },
+    {
+      "path": "firmware/main/media_catalog.c",
+      "beforeSha256": null,
+      "afterSha256": "fe5e46a7f71a0e98fe86def405586ccad5e44a0e3b080e6fbf81ee4cce46ae31",
+      "bytes": 2087
+    },
+    {
+      "path": "firmware/main/media_catalog.h",
+      "beforeSha256": null,
+      "afterSha256": "252c9ae4628bbdcda7a1a1b322f0fa23b8a465e19aa590547e6adbc1f539a8f5",
+      "bytes": 1011
+    },
+    {
+      "path": "firmware/main/media_catalog_json.c",
+      "beforeSha256": null,
+      "afterSha256": "82212417721efe2b17c6f2a39b6b940ee819a0b430dc7b44f8648d1cfa13c94b",
+      "bytes": 2618
+    },
+    {
+      "path": "firmware/main/network_client.c",
+      "beforeSha256": "1f4a32c8b221c9a7b9e1faf23e9b9e318db63aae6fa0bbd7780c80067e2f28fa",
+      "afterSha256": "387d44699f3132d93d4ba7a410903e96ec1034a6dc6725c0240fbfaeaa60f244",
+      "bytes": 24158
+    },
+    {
+      "path": "firmware/main/network_client.h",
+      "beforeSha256": "d6a2939ee3d9354cd9c2c8bf6cd3ed905fe13fb79e4b2e849825333b0401b823",
+      "afterSha256": "a0b94acdf1ecdfa7514a68f0e9eb0383c61d2ed78fd2944bdb3581c4d5c5c985",
+      "bytes": 1708
+    },
+    {
+      "path": "firmware/main/study_projection.h",
+      "beforeSha256": "2d05da437a5278671bcff14a7f0a6fe0ef5a22fede2c9c78d9977176e170aaba",
+      "afterSha256": "80c14f9a01b1a8850e5605ca726f23ef8ec0289c535b2314c135795070350023",
+      "bytes": 1193
+    },
+    {
+      "path": "firmware/main/ui/ui_font_timer_176.c",
+      "beforeSha256": null,
+      "afterSha256": "347f1e8d68a94cb4c966945f0b2a82ad7f633c0865f0106de7640bc1a5177a4b",
+      "bytes": 343336
+    },
+    {
+      "path": "firmware/main/ui/ui_shell.c",
+      "beforeSha256": "ac7d21d83a466ba4e06c4f98ac315ca16a27bb50e6108c60039b14ca6aea4789",
+      "afterSha256": "fdce1c1be1d46579293663dbf76b055128570c820596279f136603bc35da4582",
+      "bytes": 81685
+    },
+    {
+      "path": "firmware/main/video_player.c",
+      "beforeSha256": "1d24dc0dcbe4dc579e75e4a8a0ac80cf45d5626779169b100a8cf29fbd8d3015",
+      "afterSha256": "1ca41534fe0f084994d29236fbebf2abff0544563aa396d400d2bb35d0dbcbfa",
+      "bytes": 12797
+    },
+    {
+      "path": "firmware/main/video_player.h",
+      "beforeSha256": "c3af1b29150cfc2e84946364a9dd7d4f38f837bf19277a4c06e06ccd443ef48a",
+      "afterSha256": "64903d7e70b9bf5fafee3147684f82e5fbb44b077b4930dda9d2bf4238d20c08",
+      "bytes": 482
+    },
+    {
+      "path": "package-lock.json",
+      "beforeSha256": "2b961a8b5c3472d80ae39b9b4adf503bd0dcd06ea0382802feff74c20d16339c",
+      "afterSha256": "b9f88a2429b8eda8cd73459b83529dbae952c787ef88258bcd934619d05566c7",
+      "bytes": 121678
+    },
+    {
+      "path": "tests/animation-library.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "fef5e254b8c90d663219e599eba4b1c65d766cd7fc22ff374997e9d3aacecdb8",
+      "bytes": 5320
+    },
+    {
+      "path": "tests/study-duration.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "824c66df9039b75e8c8cc8b7a1ee453a87bd59b404387881d1849a37d8592195",
+      "bytes": 1767
+    },
+    {
+      "path": "tests/system-provider.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "69540d2720d44f6d086432c2c4ea1fb6a4b66e0758793eda579337c8f4d63a10",
+      "bytes": 4444
+    },
+    {
+      "path": "tools/firmware/build-firmware.ps1",
+      "beforeSha256": "13f2b02906fd0690836a82ff13c2be62d3efb408575cb799e541658330522279",
+      "afterSha256": "1548e8b6c00d94ca3101d1a7ca0bd478c5670086f9e6c5502dd11598e99e94d2",
+      "bytes": 2454
+    },
+    {
+      "path": "tools/firmware/check-media-catalog-json.ps1",
+      "beforeSha256": null,
+      "afterSha256": "4c89447b1b1e202bf9eb6be6a590f44191b535ea6aa75f63c139704980f9846c",
+      "bytes": 1202
+    },
+    {
+      "path": "tools/firmware/generate-device-fonts.py",
+      "beforeSha256": "d9c268b5fae71530ada7bc6f3fb169cffc54adaa8d9a9eb27d8d3b6ffde9a54a",
+      "afterSha256": "5df4e161240f32c552fb4f974f4c8b6f2a5fcd3eb1170449d72d167cdd020cf9",
+      "bytes": 4306
+    },
+    {
+      "path": "tools/firmware/lvgl-host/animation_preferences_test.c",
+      "beforeSha256": null,
+      "afterSha256": "8e8c154156a0f2362feabf9218da1873ff9c66a3460ccbd572db375958fa6ded",
+      "bytes": 4961
+    },
+    {
+      "path": "tools/firmware/lvgl-host/crt_clock_test.c",
+      "beforeSha256": "4d7c5f035d9934ab0193a77935cf8dc9b3784b64e677f2d3548fd2126a833d22",
+      "afterSha256": "150b9f2b39b2df90311c86f458a8dd0e9562933d0e74de97bd9d1c9113ce7973",
+      "bytes": 3497
+    },
+    {
+      "path": "tools/firmware/lvgl-host/display_pipeline_test.c",
+      "beforeSha256": null,
+      "afterSha256": "bc2805d3defb62ed129c040276eeb9466f6008e04336a2a6f8e3343381a9a476",
+      "bytes": 4019
+    },
+    {
+      "path": "tools/firmware/lvgl-host/media_catalog_json_test.c",
+      "beforeSha256": null,
+      "afterSha256": "dc233788a551dd5a4cbca2a30659f68470b4642732a3e2ad5082a8c554dbc433",
+      "bytes": 2275
+    },
+    {
+      "path": "tools/firmware/lvgl-host/render.c",
+      "beforeSha256": "c044a9c45a0f3e54223b60188b17b8c6e14ec5673ee6ff36172d86ea4fb7b3fe",
+      "afterSha256": "58b03c2cf0d007e1032c951fe9407b0a90125e4cb1785cab1598e1032633273e",
+      "bytes": 42447
+    },
+    {
+      "path": "tools/firmware/render-device-review.ps1",
+      "beforeSha256": "fb02ed1e6f055123082865bea3b6ea89d9df79eb14a28ec1201fffcede0a0451",
+      "afterSha256": "92e7642e86f4864fc4f123cc5845df520ade6fd58061d350c0001aa68fe38694",
+      "bytes": 4188
+    },
+    {
+      "path": "tools/testing/observe-device.py",
+      "beforeSha256": "d75b0b3549874293662d04ebd943793db8f7f3a0537f4f9c22be5a4ddabf0e0a",
+      "afterSha256": "4091a94df566348e0e9240fdea21178509adcda33fd850b4235838b32da684fc",
+      "bytes": 5455
+    }
+  ]
+}

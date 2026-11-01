@@ -1,6 +1,8 @@
 # 版本与历史
 
-`main`是项目默认打开、后续继续维护的主版本。本轮交付为0.4.0：设备本地亮度与显示设置、学习控制、按压高亮、点阵时钟及配套原创媒体工具。维护者于2026-10-27明确授权通过PR #1合并；实际合并状态见[PR记录](https://github.com/bydanmo/zzz-esp32-monitor-hub/pull/1)。
+`main`是项目默认打开、后续继续维护的主版本。2026-11-01的0.5.8更新与留痕见[更新记录](updates/v0.5.8.md)，更新前main固定在[恢复标签](https://github.com/bydanmo/zzz-esp32-monitor-hub/tree/main-before-v0.5.8-20261101)。
+
+以下为0.4.0历史交付：设备本地亮度与显示设置、学习控制、按压高亮、点阵时钟及配套原创媒体工具。维护者于2026-10-27明确授权通过PR #1合并；实际合并状态见[PR记录](https://github.com/bydanmo/zzz-esp32-monitor-hub/pull/1)。
 
 | 入口 | 用途 |
 | --- | --- |

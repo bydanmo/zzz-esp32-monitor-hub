@@ -7,13 +7,13 @@ ESP32 RGB565 动画帧、离线 GLB 和额外评审预览已移到独立资源�
 
 ## 下载设备动画与离线模型
 
-固件0.4.0分支使用 [0.4.0候选资源](https://github.com/bydanmo/zzz-esp32-monitor-hub/releases/tag/resources-v0.4.0)，下载 `zzz-monitor-resources-v0.4.0.zip` 与校验文件。旧main对应的 [0.1.0资源](https://github.com/bydanmo/zzz-esp32-monitor-hub/releases/tag/resources-v0.1.0) 仍保留，不覆盖其文件。将对应版本 ZIP **解压到仓库根目录**，保留其中目录结构，再执行：
+0.5.8保留0.4.0原创素材表与相同窗口几何，可继续使用 [0.4.0候选资源](https://github.com/bydanmo/zzz-esp32-monitor-hub/releases/tag/resources-v0.4.0)，下载 `zzz-monitor-resources-v0.4.0.zip` 与校验文件。旧main对应的 [0.1.0资源](https://github.com/bydanmo/zzz-esp32-monitor-hub/releases/tag/resources-v0.1.0) 仍保留，不覆盖其文件。将对应版本 ZIP **解压到仓库根目录**，保留其中目录结构，再执行：
 
 ```powershell
 npm run build
 ```
 
-重启 Hub 后设备可从 `/motion-assets/` 下载资源到 TF，再校验并载入 PSRAM。包内固件素材表与帧文件需配套；版本不同或使用自备视频时重新构建固件。
+重启 Hub 后设备可从 `/motion-assets/` 下载资源到 TF，再校验并载入 PSRAM。背景与内置帧仍须匹配固件素材表；更换背景或命令行重建默认素材后重新构建固件。网页上传的新片段由运行时目录管理，不需要逐段重刷。
 `RESOURCE-PACK.json` 登记逐文件 SHA256；外层 ZIP 校验值见同名 `.sha256`。
 帧、评审视频和 GLB 导出被 `.gitignore` 忽略；小型固件素材表仍随源码管理。不要用 `git add -f` 把导出塞回主仓库。
 
@@ -39,6 +39,14 @@ npm run build
 
 0.4.0以cover等比铺满窗口，不再新增上下补边；原创场景新增与固件时钟匹配的外壳。时钟在设备播放时局部绘制，显示Hub电脑时间的UTC+8；导出MP4不会自动包含实时时钟。
 生成会同步更新固件素材表。FFmpeg 版本与字体可能改变逐字节输出，帧、清单和表必须配套。随后可用 `npm run resources:pack` 生成独立 ZIP；离线模型只在本地存在时加入，不会暗中下载。
+
+## 网页上传与设备选择（0.5.8）
+
+先按上节下载兼容原创资源或运行 `npm run media:generate`，使480×320背景可用；纯源码没有设备背景时，网页监控仍可用，动画上传会提示缺少背景。安装本地FFmpeg和FFprobe并加入PATH，或用 `.env` 的 `FFMPEG_PATH`／`FFPROBE_PATH` 指定可执行文件。
+
+网页「动画库」上传MP4／WebM／GIF／MOV／MKV（非空、最多128MB，视频不超过3840×2160），设起点及0.5–4秒。生成198×150、30FPS时间轴的局部RGB565片段、合成预览与封面；源上传临时文件转换后移除，生成文件留在被忽略的 `apps/hub/data/animations/`。同时只处理一段，最多8段，失败不替换已有资源。Hub默认仅本机监听；改为局域网监听后，同源页面可修改动画库，限可信局域网使用。演示模式不连接真实动画库。
+
+在设备「设置→动画」选择固定单段或队列轮播，直接保存即可，保存后留页。TF缓存自动后台同步，已有CRC匹配文件复用，不必逐段点下载。预览可选；队列每次五分钟屏保只重复同一段，下次屏保才推进，末项回到首项，重启从首项开始。触摸提前退出，预览不改变队列进度。运行中的学习和完成待确认会阻止屏保，暂停时允许且计时保持暂停。
 
 ## 使用自己的图片和视频
 

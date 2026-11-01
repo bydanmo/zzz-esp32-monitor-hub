@@ -12,7 +12,11 @@ parser.add_argument("--port",required=True)
 parser.add_argument("--seconds",type=int,default=660)
 parser.add_argument("--output",type=Path,required=True)
 parser.add_argument("--resume",action="store_true",help="Append a further observation segment without resetting the device")
+parser.add_argument("--stop-after-transitions",type=int,default=0,help="Stop after this many complete queue transitions; 0 keeps the timed/cycle observation")
+parser.add_argument("--stop-after-sessions",type=int,default=0,help="Observe across automatic returns and stop when N automatic sessions have started")
 args=parser.parse_args();args.output.mkdir(parents=True,exist_ok=True)
+if args.stop_after_transitions<0:parser.error("transition count must be nonnegative")
+if args.stop_after_sessions<0:parser.error("session count must be nonnegative")
 state={"port":args.port,"startedAt":datetime.now(timezone.utc).isoformat(),"samples":[],"events":[],"errors":[],"automaticReturn":False,"physicalTouchVerified":False,"physicalPixelsVerified":False}
 if args.resume:
     state=json.loads((args.output/"progress.json").read_text(encoding="utf-8"))
@@ -35,7 +39,7 @@ try:
             raw=port.readline().decode("utf-8",errors="replace")
             if not raw:continue
             line=re.sub(r"\x1b\[[0-9;]*m","",raw).strip();log.write(line+"\n");log.flush()
-            if any(t in line for t in ("media-assets:","video-player:","Dashboard idle","Dashboard restored","Video phase","stack minimum","Study projection committed","Device hello sent","local-settings:","Local display:")):
+            if any(t in line for t in ("media-assets:","video-player:","Dashboard idle","Dashboard restored","Video phase","Playback plan","stack minimum","Study projection committed","Device hello sent","local-settings:","Local display:")):
                 state["events"].append(line);print(line,flush=True)
             local=re.search(r"(?:Saved|Local display:) brightness=(\d+)% reduced=(\d) screensaver=(\d)",line)
             if local:
@@ -47,10 +51,18 @@ try:
                 state["samples"].append(dict(mode=mode,fps=float(fps),readMs=float(read),lcdWaitMs=float(lcd),skipped=int(skipped),clockUpdates=int(clock)))
             if "Video phase complete; dashboard cycle restarted" in line:
                 state["automaticReturn"]=True;returned=time.monotonic()
+            session_clip=re.search(r"Screensaver session clip ([a-z0-9]+);",line)
+            if session_clip:state.setdefault("automaticSessions",[]).append({"id":session_clip[1],"line":line})
+            if "Animation segment complete; preparing next clip" in line:state["waitingForClip"]=True
+            if "Video screensaver started" in line and state.get("waitingForClip"):
+                state["completedTransitions"]=state.get("completedTransitions",0)+1;state["waitingForClip"]=False
+            if any(t in line for t in ("Video phase complete","Dashboard restored by touch","Video screensaver stopped")):state["waitingForClip"]=False
             if any(t in line for t in ("Guru Meditation","panic'ed","task_wdt:","Video playback failed")):state["errors"].append(line)
             state["observedSeconds"]=round(offset+time.monotonic()-started,1)
             (args.output/"progress.json").write_text(json.dumps(state,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
-            if returned and time.monotonic()-returned>3:break
+            if args.stop_after_transitions and state.get("completedTransitions",0)>=args.stop_after_transitions:break
+            if args.stop_after_sessions and len(state.get("automaticSessions",[]))>=args.stop_after_sessions:break
+            if not args.stop_after_sessions and returned and time.monotonic()-returned>3:break
 finally:
     port.close()
     state["observedSeconds"]=round(offset+time.monotonic()-started,1)

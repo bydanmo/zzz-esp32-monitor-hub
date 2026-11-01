@@ -4,6 +4,18 @@
 #include <string.h>
 #include "crt_clock.h"
 
+static void background_pixel(unsigned char *background,int x,int y,unsigned color)
+{
+    size_t at=((size_t)(CRT_CLOCK_Y+y)*480+CRT_CLOCK_X+x)*2;
+    background[at]=(unsigned char)(color>>8);background[at+1]=(unsigned char)color;
+}
+
+static unsigned patch_pixel(const unsigned char *pixels,int x,int y)
+{
+    size_t at=((size_t)y*CRT_CLOCK_WIDTH+x)*2;
+    return (pixels[at]<<8)|pixels[at+1];
+}
+
 int main(int argc,char **argv)
 {
     uint32_t seconds=0;
@@ -24,9 +36,28 @@ int main(int argc,char **argv)
     memset(guarded,0xAA,sizeof(guarded));
     crt_clock_render(guarded+1,background,23*3600+59*60,true);
     assert(guarded[0]==0xAA && guarded[sizeof(guarded)-1]==0xAA);
+    /* A luminous baked digit is removed; the adjacent red case is retained. */
+    background_pixel(background,16,18,0xffb5);
+    background_pixel(background,2,2,0x7843);
+    crt_clock_prepare(background);
+    crt_clock_render(guarded+1,background,0,false);
+    assert(patch_pixel(guarded+1,16,18)==0);
+    assert(patch_pixel(guarded+1,2,2)==0x7843);
+    unsigned char first[CRT_CLOCK_WIDTH*CRT_CLOCK_HEIGHT*2];
+    crt_clock_render(first,background,17*3600+2*60,true);
+    crt_clock_render(guarded+1,background,8*3600+58*60,true);
+    crt_clock_render(guarded+1,background,17*3600+2*60,true);
+    assert(memcmp(first,guarded+1,sizeof(first))==0); /* no accumulated old digits */
+    assert(patch_pixel(first,2,2)==0x7843);
+    for(unsigned minute=0;minute<24*60;minute++) {
+        crt_clock_render(guarded+1,background,minute*60,true);
+        assert(guarded[0]==0xAA && guarded[sizeof(guarded)-1]==0xAA);
+        assert(patch_pixel(guarded+1,2,2)==0x7843);
+    }
     if (argc==3) {
         FILE *source=fopen(argv[1],"rb");assert(source);
         assert(fread(background,1,sizeof(background),source)==sizeof(background));fclose(source);
+        crt_clock_prepare(background);
         crt_clock_render(guarded+1,background,22*3600+28*60,true);
         for(int y=0;y<CRT_CLOCK_HEIGHT;++y) memcpy(background+((CRT_CLOCK_Y+y)*480+CRT_CLOCK_X)*2,
             guarded+1+y*CRT_CLOCK_WIDTH*2,CRT_CLOCK_WIDTH*2);
@@ -38,5 +69,5 @@ int main(int argc,char **argv)
         }
         fclose(out);
     }
-    puts("CRT clock: UTC+8, midnight rollover, invalid input, monotonic holdover, render bounds passed");
+    puts("CRT clock: UTC+8, rollover, holdover, baked-emitter removal, case preservation, no ghosting and all 1440 minute bounds passed");
 }

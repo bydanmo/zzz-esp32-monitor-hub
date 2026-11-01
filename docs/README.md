@@ -13,6 +13,7 @@
 
 - [源码目录与开发命令](development.md)
 - [设计系统、Agent 输入与美术生产流程](design/README.md)
+- [0.5.8变化、验证与上传留痕](updates/v0.5.8.md)
 - [首版验证范围](validation-v0.1.md)
 - [2026-10-25 项目审查与稳定性修复](2026-10-25_project-review.md)
 - [工具分类](../tools/README.md)

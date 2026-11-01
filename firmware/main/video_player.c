@@ -30,6 +30,7 @@ static FILE *video_file;
 static uint8_t *chunk_buffer;
 static uint8_t *second_chunk;
 static size_t frame_count;
+static size_t legacy_frame_count;
 static size_t current_frame;
 static int64_t next_frame_us;
 static int64_t playback_started_us;
@@ -65,12 +66,13 @@ static void prepare_pipeline(void)
 
 static esp_err_t select_asset(int index,int64_t now_us)
 {
-    const media_asset_t *asset=&media_assets[index];
+    const media_asset_t *asset=media_assets_current((unsigned)index);
     const uint8_t *background=media_assets_data(1);
-    if(!media_assets_data(index) || !background || media_assets[1].bytes!=(size_t)VIDEO_WIDTH*VIDEO_HEIGHT*2) return ESP_ERR_INVALID_STATE;
+    if(!asset || !media_assets_data(index) || !background || media_assets_current(1)->bytes!=(size_t)VIDEO_WIDTH*VIDEO_HEIGHT*2) return ESP_ERR_INVALID_STATE;
     if(!chunk_buffer) chunk_buffer=heap_caps_malloc(VIDEO_CHUNK_BYTES,MALLOC_CAP_DMA|MALLOC_CAP_INTERNAL);
     if(!chunk_buffer) return ESP_ERR_NO_MEM;
     prepare_pipeline();
+    ESP_RETURN_ON_FALSE(crt_clock_prepare(background),ESP_ERR_NO_MEM,TAG,"Clock glass allocation failed");
     active_asset=index;
     clock_drawn_second=UINT32_MAX;
     clock_updates=0;
@@ -156,6 +158,7 @@ esp_err_t video_player_init(void)
         return ESP_ERR_INVALID_SIZE;
     }
     frame_count = (size_t)file_size / VIDEO_FRAME_BYTES;
+    legacy_frame_count=frame_count;
     esp_err_t rewind_result = rewind_video();
     if (rewind_result != ESP_OK) {
         fclose(video_file); video_file = NULL;
@@ -194,6 +197,8 @@ esp_err_t video_player_start(int64_t now_us)
     if (!video_player_is_available()) {
         ESP_RETURN_ON_ERROR(video_player_init(), TAG, "Unable to recover video resource");
     }
+    active_asset=-1;active_width=VIDEO_WIDTH;active_height=VIDEO_HEIGHT;origin_x=origin_y=0;
+    frame_interval_us=VIDEO_FRAME_INTERVAL_US;active_frame_bytes=VIDEO_FRAME_BYTES;frame_count=legacy_frame_count;
     ESP_RETURN_ON_ERROR(rewind_video(), TAG, "Unable to start video");
     prepare_pipeline();
     next_frame_us = now_us;
@@ -204,6 +209,11 @@ esp_err_t video_player_start(int64_t now_us)
     active = true;
     ESP_LOGI(TAG, "Video screensaver started");
     return ESP_OK;
+}
+
+esp_err_t video_player_start_preview(int64_t now_us)
+{
+    return video_player_start(now_us);
 }
 
 esp_err_t video_player_step(int64_t now_us)
@@ -294,7 +304,7 @@ esp_err_t video_player_step(int64_t now_us)
 void video_player_stop(void)
 {
     /* Also release the final borrowed buffer on a read/transfer error. */
-    (void)board_display_wait();
+    if(board_display_wait()==ESP_OK){free(second_chunk);second_chunk=NULL;}
     if (active) ESP_LOGI(TAG, "Video screensaver stopped");
     active = false;
 }

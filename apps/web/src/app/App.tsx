@@ -7,6 +7,7 @@ import { useAppearance } from "../design/use-appearance";
 import { ConnectionsView } from "../features/connections/ConnectionsView";
 import { DataOverview } from "../features/overview/DataOverview";
 import { ScreenEditor } from "../features/screen-editor/ScreenEditor";
+import { AnimationLibraryPanel } from "../features/animations/AnimationLibrary";
 import { fetchSnapshot } from "../services/hub-api";
 import { fetchHubMetadata } from "../services/hub-metadata";
 import { connectSnapshotSocket } from "../services/snapshot-socket";
@@ -33,7 +34,7 @@ import { isDemoMode } from "../services/demo";
 const demo = isDemoMode();
 const draftStorageKey = demo ? "zzz-demo-draft-v1" : realDraftStorageKey;
 
-type View = "overview" | "editor" | "connections";
+type View = "overview" | "editor" | "connections" | "animations";
 
 function isConfig(value: unknown): value is DeviceDisplayConfig {
   if (typeof value !== "object" || value === null) return false;
@@ -164,7 +165,7 @@ export function App() {
       <header className="app-header">
         <div className="brand"><span className="brand-mark" aria-hidden="true">DM<span>01</span></span><div className="brand-copy"><b>桌面终端</b><small>DESK MONITOR / LOCAL HUB</small></div></div>
         <nav className="view-nav" aria-label="控制台功能">{([
-          ["overview", "数据总览"], ["editor", "屏幕编辑"], ["connections", "连接与数据源"]
+          ["overview", "数据总览"], ["editor", "屏幕编辑"], ["animations", "动画库"], ["connections", "连接与数据源"]
         ] as const).map(([target, label]) => <button type="button" key={target} className={view === target ? "view-button is-active" : "view-button"} aria-current={view === target ? "page" : undefined} onClick={() => setView(target)}>{label}</button>)}</nav>
         {demo ? <span className="status-badge">演示模式 · 只读</span> : <StatusBadge state={connection} />}
       </header>
@@ -173,6 +174,7 @@ export function App() {
         <AppearanceBar preferences={preferences} setPreferences={setPreferences} reduced={reduced} storageNotice={storageNotice} />
         {apiError ? <p className="service-notice" role="status">{apiError}</p> : null}
       <div className="view-stage" key={view}>
+        {view === "animations" ? (demo ? <section className="service-notice" role="status">演示模式为只读。请返回实时监控，在本机动画库上传和管理自备素材。</section> : <AnimationLibraryPanel />) : null}
         {view === "overview" ? <DataOverview snapshot={snapshot} connection={connection}
           connectedDevices={connectedDevices} examTarget={examTarget} onExamTargetSaved={response => {
             examTargetSave.current += 1;

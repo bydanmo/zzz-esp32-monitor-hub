@@ -7,6 +7,8 @@
 | React／React DOM、Three.js、Vite、Fastify 等 | 各自 npm 包声明的许可 | 锁文件固定解析版本，依赖保留原始许可 |
 | LVGL | MIT，组件管理器来源 | 不复制整份依赖源码，保留组件声明 |
 | ESP-IDF／Espressif WebSocket 组件 | 各自发行版许可 | 使用声明依赖与已安装工具链 |
+| Koffi | npm包内许可 | Windows原生接口调用依赖，版本见锁文件，不分发系统DLL |
+| @fastify/multipart | npm包内许可 | 本机动画文件上传，版本见锁文件 |
 | resvg-js | 包内许可及其依赖声明 | 仅开发期 SVG 渲染，不打包到浏览器运行时 |
 | FFmpeg | 用户本地安装版本及其编译配置决定 | 不分发 FFmpeg 二进制；仅用于可选媒体生成 |
 | 游戏截图、原作视频、商品图和研究拼贴 | 原作及对应发布者 | 仅记录研究方法与来源类型，不随首版分发 |

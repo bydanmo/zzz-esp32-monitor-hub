@@ -3,9 +3,11 @@
 **ESP32-S3 桌面监控系统：本机数据采集＋网页控制台＋触控屏固件。**
 复古 CRT、街头排版、六套主题与原创 3D 终端；没有硬件也能使用。
 
-本轮交付包含设备固件 **0.4.0**：新增本地亮度／动效／屏保设置、可选学习控制、点阵时钟及完整按压高亮。实现与剩余验收见 [当前交接](docs/STATUS.md)；查看旧main、下载旧版与了解历史见 [版本入口](docs/versions.md)。
+本次更新包含设备固件 **0.5.8**：多动画上传与自动队列、后台TF缓存、可调分钟大屏计时、Windows原生采集及保留整页动效的DMA刷新优化。实现与剩余验收见 [当前交接](docs/STATUS.md)；查看旧main、下载旧版与了解历史见 [版本入口](docs/versions.md)。
 
 ![界面预览](docs/images/overview-demo.png)
+
+更新内容、实测范围与回滚见 [0.5.8记录](docs/updates/v0.5.8.md)。原作素材由使用者自行导入，源码继续保持轻量。
 
 ## 快速开始
 
@@ -28,7 +30,7 @@ npm start
 | ESP32 固件 | [配置、引脚与烧录](firmware/README.md) |
 | 设计与开发 | [文档导航](docs/README.md) · [美术设计流程](docs/design/README.md) |
 | 开发工具 | [Windows、固件、素材工具](tools/README.md) |
-| 可选资源 | [0.4.0候选动画资源](https://github.com/bydanmo/zzz-esp32-monitor-hub/releases/tag/resources-v0.4.0) · [生成与导入](docs/media.md) |
+| 可选资源 | [兼容原创动画资源](https://github.com/bydanmo/zzz-esp32-monitor-hub/releases/tag/resources-v0.4.0) · [生成与导入](docs/media.md) |
 | 学习与本地设置 | [学习接口与配对](docs/study-link.md) · [设备本地设置](firmware/README.md#本地设置) |
 
 源码保留网页必需的小素材。ESP32 动画帧、离线 GLB 和评审导出单独提供；**不下载也能运行网页与监控**。
